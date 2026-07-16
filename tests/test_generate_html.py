@@ -47,6 +47,49 @@ class GeneratedHtmlTest(unittest.TestCase):
                        cwd=ROOT.parent, check=True)
         self.assertTrue((ROOT / "itinerary.html").is_file())
 
+    def test_persistence_api_uses_versioned_local_storage(self):
+        self.assertIn("const STORAGE_KEY = 'itinerary-editor-state-v1';", self.html)
+        self.assertIn("function loadState()", self.html)
+        self.assertIn("function saveState(points)", self.html)
+        self.assertIn("schemaVersion: 1", self.html)
+        self.assertIn("localStorage.setItem(STORAGE_KEY", self.html)
+        self.assertIn("try {", self.html)
+        self.assertIn("return false;", self.html)
+
+    def test_transfer_and_reset_controls_are_present(self):
+        for control in ("addPointBtn", "exportBtn", "importInput", "resetBtn", "saveStatus"):
+            self.assertIn('id="' + control + '"', self.html)
+        self.assertIn("function exportJson()", self.html)
+        self.assertIn("function importJson(file)", self.html)
+        self.assertIn("function resetToBase()", self.html)
+
+    def test_import_validates_before_replacing_points(self):
+        import_fn = self.html.split("function importJson(file)", 1)[1].split(
+            "function resetToBase()", 1
+        )[0]
+        self.assertIn("ItineraryCore.parseImport", import_fn)
+        self.assertLess(import_fn.index("ItineraryCore.parseImport"),
+                        import_fn.index("POIS ="))
+        self.assertIn("confirm(", import_fn)
+        self.assertIn("catch", import_fn)
+
+    def test_export_downloads_blob_and_releases_url(self):
+        export_fn = self.html.split("function exportJson()", 1)[1].split(
+            "function importJson(file)", 1
+        )[0]
+        self.assertIn("new Blob", export_fn)
+        self.assertIn("URL.createObjectURL", export_fn)
+        self.assertIn("download", export_fn)
+        self.assertIn("URL.revokeObjectURL", export_fn)
+
+    def test_reset_removes_saved_state_and_rerenders(self):
+        reset_fn = self.html.split("function resetToBase()", 1)[1].split(
+            "function boot()", 1
+        )[0]
+        self.assertIn("localStorage.removeItem(STORAGE_KEY)", reset_fn)
+        self.assertIn("BASE_POIS", reset_fn)
+        self.assertIn("selectDay(curDay)", reset_fn)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -26,6 +26,11 @@ body{
 .banner-inner{position:relative; display:flex; align-items:center; justify-content:space-between; gap:24px; flex-wrap:wrap}
 .banner h1{margin:0; font-size:28px; font-weight:800; letter-spacing:.5px; text-align:center; flex:1 1 auto}
 .banner .sub{text-align:center; margin-top:5px; font-size:12px; opacity:.9; letter-spacing:3px}
+.actions{display:flex; gap:8px; align-items:center; flex:0 1 auto; flex-wrap:wrap; justify-content:center}
+.action-btn{border:1px solid rgba(255,255,255,.4); border-radius:9px; padding:8px 11px;
+  background:rgba(255,255,255,.16); color:#fff; cursor:pointer; font:inherit; font-size:12px}
+.action-btn:hover{background:rgba(255,255,255,.28)}
+.save-status{width:100%; min-height:16px; font-size:11px; text-align:center; opacity:.92}
 .badges{display:flex; gap:10px; flex:0 0 auto}
 .badge{background:rgba(255,255,255,.16); backdrop-filter:blur(8px); border:1px solid rgba(255,255,255,.28);
   border-radius:14px; padding:10px 14px; min-width:84px; text-align:center;}
@@ -90,6 +95,14 @@ body{
     <div class="center" style="flex:1">
       <h1>武汉 → 山东 · 山海九日行</h1>
       <div class="sub">WUHAN · JINAN · WEIHAI · YANTAI</div>
+    </div>
+    <div class="actions">
+      <button class="action-btn" id="addPointBtn" type="button">添加点</button>
+      <button class="action-btn" id="exportBtn" type="button">导出 JSON</button>
+      <button class="action-btn" id="importBtn" type="button">导入 JSON</button>
+      <button class="action-btn" id="resetBtn" type="button">恢复初始行程</button>
+      <input id="importInput" type="file" accept=".json,application/json" hidden>
+      <div id="saveStatus" class="save-status" role="status" aria-live="polite"></div>
     </div>
     <div class="badges">
       <div class="badge"><div class="v" id="bDays">9</div><div class="l">天数 DAYS</div></div>
@@ -220,11 +233,113 @@ const BUDGETS = {"交通": 2030, "住宿": 1040, "租车": 937, "吃饭门票": 
 const TOTAL = 5507;
 const HOTELS = {"济南住宿·天桥区": {"addr": "天桥区小清河北路恒大滨河左岸D9公寓1号楼119号商铺", "price": "¥138", "status": "已预订"}, "威海住宿·山大路": {"addr": "环翠区高技术产业开发区山大路15-6号(建设银行旁，山大南门对面)", "price": "¥352/2晚", "status": "已预订"}, "威海住宿·山大路(继续住)": {"addr": "山大路15-6号", "price": "—", "status": "续住"}, "烟台住宿·金海湾": {"addr": "烟台山旁海景(芝罘区)", "price": "约¥400/晚", "status": "推荐·未订"}, "烟台住宿·金海湾(继续住)": {"addr": "烟台山旁海景", "price": "—", "status": "续住"}, "威海站住宿·汉庭": {"addr": "汉庭酒店威海火车站店", "price": "约¥150/晚", "status": "推荐·未订"}};
 const DAYS = Object.keys(DAY_META).map(Number).sort(function(a,b){return a-b});
-let POIS = ItineraryCore.normalizePoints(BASE_POIS);
+const STORAGE_KEY = 'itinerary-editor-state-v1';
+
+function setSaveStatus(message, isError) {
+  const el = document.getElementById('saveStatus');
+  el.textContent = message || '';
+  el.style.color = isError ? '#ffe0e0' : '#ffffff';
+}
+
+function loadState() {
+  const base = ItineraryCore.normalizePoints(BASE_POIS.map(function(p){ return Object.assign({}, p); }));
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return base;
+    const snapshot = JSON.parse(raw);
+    if (!snapshot || snapshot.schemaVersion !== 1 || !Array.isArray(snapshot.points)) {
+      throw new Error('保存的行程格式无效');
+    }
+    return ItineraryCore.normalizePoints(snapshot.points);
+  } catch (e) {
+    setSaveStatus('自动保存读取失败，已使用初始行程', true);
+    return base;
+  }
+}
+
+function saveState(points) {
+  try {
+    const normalizedPoints = ItineraryCore.normalizePoints(points);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      schemaVersion: 1,
+      savedAt: new Date().toISOString(),
+      points: normalizedPoints
+    }));
+    setSaveStatus('已自动保存', false);
+    return true;
+  } catch (e) {
+    setSaveStatus('自动保存失败，请立即导出 JSON', true);
+    return false;
+  }
+}
+
+function exportJson() {
+  try {
+    const doc = ItineraryCore.createExport(POIS, '武汉 → 山东 9日旅行计划', new Date());
+    const blob = new Blob([JSON.stringify(doc, null, 2)], {type: 'application/json;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const date = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = 'shandong-itinerary-' + date + '.json';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setSaveStatus('JSON 已导出', false);
+  } catch (e) {
+    setSaveStatus('导出失败，请稍后重试', true);
+  }
+}
+
+async function importJson(file) {
+  const previous = POIS;
+  try {
+    const text = await file.text();
+    const imported = ItineraryCore.parseImport(text);
+    if (!confirm('导入会替换当前行程，是否继续？')) return;
+    POIS = imported.points;
+    if (!saveState(POIS)) {
+      POIS = previous;
+      setSaveStatus('导入失败：无法保存，当前行程未改变', true);
+      return;
+    }
+    document.getElementById('bPoi').textContent = POIS.length;
+    if (curDay !== null) selectDay(curDay);
+    setSaveStatus('JSON 已导入', false);
+  } catch (e) {
+    POIS = previous;
+    setSaveStatus('导入失败：' + (e && e.message || e), true);
+  }
+}
+
+function resetToBase() {
+  if (!confirm('确定恢复初始行程吗？当前修改将被覆盖。')) return;
+  POIS = ItineraryCore.normalizePoints(BASE_POIS.map(function(p){ return Object.assign({}, p); }));
+  localStorage.removeItem(STORAGE_KEY);
+  document.getElementById('bPoi').textContent = POIS.length;
+  setSaveStatus('已恢复初始行程', false);
+  if (curDay !== null) selectDay(curDay);
+}
+
+let POIS = loadState();
 
 document.getElementById('bDays').textContent = DAYS.length;
 document.getElementById('bPoi').textContent = POIS.length;
 document.getElementById('bCost').textContent = '¥' + Number(TOTAL).toLocaleString();
+document.getElementById('addPointBtn').addEventListener('click', function(){
+  setSaveStatus('编辑功能将在后续版本提供', false);
+});
+document.getElementById('exportBtn').addEventListener('click', exportJson);
+document.getElementById('importBtn').addEventListener('click', function(){
+  document.getElementById('importInput').click();
+});
+document.getElementById('importInput').addEventListener('change', function(e){
+  const file = e.target.files && e.target.files[0];
+  if (file) importJson(file);
+  e.target.value = '';
+});
+document.getElementById('resetBtn').addEventListener('click', resetToBase);
 
 document.getElementById('legend').innerHTML = Object.keys(CATS).map(function(k){
   const c = CATS[k];
