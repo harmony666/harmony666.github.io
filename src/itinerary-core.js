@@ -7,14 +7,15 @@
   const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
   function validatePoint(raw) {
+    if (typeof raw.id !== 'string' || !raw.id.trim()) throw new Error('点 ID 必须是非空字符串');
     const p = {
       ...raw,
+      id: raw.id.trim(),
       day: Number(raw.day),
       position: Number(raw.position),
       lat: Number(raw.lat),
       lng: Number(raw.lng),
     };
-    if (!p.id || !String(p.id).trim()) throw new Error('点 ID 不能为空');
     if (!Number.isInteger(p.day) || p.day < 1 || p.day > 9) throw new Error('日期无效');
     if (!TIME_RE.test(p.time)) throw new Error('时间格式无效');
     if (!CATEGORIES.has(p.cat)) throw new Error('类别无效');

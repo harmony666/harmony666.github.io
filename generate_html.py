@@ -419,12 +419,28 @@ DAYS.forEach(function(d){
 });
 
 let map, multiMarker, multiPoly, infoWin;
+let mapReady = false;
 let curDay = null;
 let mapPickHandler = null;
 let pointSource = 'map_click';
 
 function setEditorMessage(message) {
   document.getElementById('pointEditorMessage').textContent = message || '';
+}
+
+function isMapAvailable() {
+  return mapReady && typeof TMap !== 'undefined' && !!map && !!multiMarker && !!multiPoly;
+}
+
+function updateMapControls() {
+  const button = document.getElementById('mapPickBtn');
+  button.disabled = !isMapAvailable();
+  button.title = isMapAvailable() ? '' : '地图不可用，请手动输入经纬度';
+}
+
+function showMapUnavailable(message) {
+  document.getElementById('mapTitle').textContent = '地图不可用：' + message;
+  updateMapControls();
 }
 
 function removeMapPickHandler() {
@@ -496,7 +512,8 @@ async function searchPlaces(keyword, city) {
   setEditorMessage('正在搜索…');
   try {
     const suggestion = new TMap.service.Suggestion({ pageSize: 8 });
-    const response = await suggestion.getSuggestions({ keyword: keyword, region: city });
+    suggestion.setRegion(city);
+    const response = await suggestion.getSuggestions({ keyword: keyword });
     const items = (response && response.data || []).slice(0, 8);
     if (!items.length) {
       setEditorMessage('未找到地点，请更换关键词');
@@ -674,6 +691,7 @@ function polylineStyle() {
 }
 
 function initMap(){
+  mapReady = false;
   const c0 = POIS[0] || {lat: 30.5928, lng: 114.3055};
   map = new TMap.Map('map', { center: new TMap.LatLng(c0.lat, c0.lng), zoom: 12 });
   multiMarker = new TMap.MultiMarker({ map: map, styles: markerStyles(POIS), geometries: [] });
@@ -685,6 +703,8 @@ function initMap(){
     if (p) flyTo(p.day, p.position);
   });
   window.addEventListener('resize', function(){ try{ map.invalidateSize && map.invalidateSize(); }catch(_){} });
+  mapReady = true;
+  updateMapControls();
   return true;
 }
 
@@ -729,6 +749,10 @@ function renderTimeline(d, list){
 }
 
 function renderMap(d, list){
+  if (!isMapAvailable()) {
+    showMapUnavailable('地图脚本或初始化失败；时间轴与数据功能仍可使用');
+    return;
+  }
   const meta = DAY_META[d];
   document.getElementById('mapTitle').innerHTML = meta.date + '<small>'+meta.sub+' · '+list.length+'点</small>';
 
@@ -796,7 +820,7 @@ function selectDay(d){
   const list = POIS.filter(function(p){ return p.day === d; })
     .sort(function(a,b){ return a.position - b.position; });
   renderTimeline(d, list);
-  renderMap(d, list);
+  if (isMapAvailable()) renderMap(d, list);
 }
 
 function flyTo(d, num){
@@ -806,6 +830,7 @@ function flyTo(d, num){
   Array.prototype.forEach.call(document.querySelectorAll('.card'), function(el){
     el.classList.toggle('active', el.dataset.id === p.id);
   });
+  if (!isMapAvailable()) return;
   map.setCenter(new TMap.LatLng(p.lat, p.lng));
   map.setZoom(15);
   const c = CATS[p.cat];
@@ -830,19 +855,29 @@ function flyTo(d, num){
 }
 
 function boot(){
-  let ok = false;
-  try { ok = initMap(); } catch(e){
-    document.getElementById('mapTitle').textContent = '❌地图初始化失败：' + (e && e.message || e);
+  if (location.protocol === 'file:') {
+    showMapUnavailable(
+      '腾讯 JSAPI GL 不支持直接双击打开。请运行本地 HTTP 服务并访问 '
+      + 'http://localhost:8000/itinerary.html'
+    );
+  } else if (typeof TMap === 'undefined') {
+    showMapUnavailable('腾讯地图脚本未加载，请检查网络或 Key 配置');
+  } else {
+    try {
+      initMap();
+    } catch(e) {
+      mapReady = false;
+      showMapUnavailable('地图初始化失败：' + (e && e.message || e));
+    }
   }
-  if (ok) selectDay(DAYS[0]);
+  selectDay(DAYS[0]);
 }
 
 if (typeof TMap !== 'undefined') {
   boot();
 } else {
   window.addEventListener('load', function(){
-    if (typeof TMap !== 'undefined') boot();
-    else document.getElementById('mapTitle').textContent = '腾讯地图脚本未加载，请检查网络';
+    boot();
   });
 }
 </script>

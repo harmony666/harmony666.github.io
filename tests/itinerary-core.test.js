@@ -40,6 +40,19 @@ test('parseImport rejects invalid coordinates without returning partial data', (
   assert.throws(() => Core.parseImport(JSON.stringify(data)), /纬度/);
 });
 
+test('normalizePoints rejects non-string ids and trims valid string ids', () => {
+  for (const invalidId of [123, {}, []]) {
+    assert.throws(
+      () => Core.normalizePoints([point(invalidId, 1, '09:00', 1)]),
+      /ID/,
+    );
+  }
+  assert.equal(
+    Core.normalizePoints([point('  valid-id  ', 1, '09:00', 1)])[0].id,
+    'valid-id',
+  );
+});
+
 test('buildNumberedPinSvg contains visible sequence number', () => {
   assert.match(Core.buildNumberedPinSvg(12, '#0aa3ff'), />12</);
 });

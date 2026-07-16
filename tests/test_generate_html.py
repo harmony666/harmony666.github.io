@@ -153,9 +153,44 @@ class GeneratedHtmlTest(unittest.TestCase):
         self.assertIn("function beginMapPick()", self.html)
         self.assertIn("function searchPlaces(keyword, city)", self.html)
         self.assertIn("new TMap.service.Suggestion({ pageSize: 8 })", self.html)
-        self.assertIn("getSuggestions({ keyword: keyword, region: city })", self.html)
+        self.assertIn("suggestion.setRegion(city)", self.html)
+        self.assertIn("getSuggestions({ keyword: keyword })", self.html)
+        self.assertNotIn("getSuggestions({ keyword: keyword, region: city })", self.html)
         self.assertIn("map.on('click', mapPickHandler)", self.html)
         self.assertIn("map.off('click', mapPickHandler)", self.html)
+
+    def test_timeline_and_tabs_survive_map_script_or_initialization_failure(self):
+        select_day = self.html.split("function selectDay(d){", 1)[1].split(
+            "function flyTo(d, num){", 1
+        )[0]
+        render_map = self.html.split("function renderMap(d, list){", 1)[1].split(
+            "function selectDay(d){", 1
+        )[0]
+        boot = self.html.split("function boot(){", 1)[1].split(
+            "</script>", 1
+        )[0]
+        self.assertIn("renderTimeline(d, list)", select_day)
+        self.assertIn("if (isMapAvailable())", select_day)
+        self.assertIn("if (!isMapAvailable())", render_map)
+        self.assertIn("selectDay(DAYS[0])", boot)
+        self.assertIn("boot();", boot)
+        self.assertIn("showMapUnavailable(", boot)
+        self.assertIn("'地图不可用：' + message", self.html)
+
+    def test_file_protocol_shows_explicit_unsupported_map_notice(self):
+        self.assertIn("location.protocol === 'file:'", self.html)
+        self.assertIn("直接双击", self.html)
+        self.assertIn("http://localhost:8000/itinerary.html", self.html)
+
+    def test_timeline_card_click_does_not_require_map(self):
+        fly_fn = self.html.split("function flyTo(d, num){", 1)[1].split(
+            "function boot()", 1
+        )[0]
+        self.assertIn("if (!isMapAvailable()) return;", fly_fn)
+        self.assertLess(
+            fly_fn.index("if (!isMapAvailable()) return;"),
+            fly_fn.index("map.setCenter"),
+        )
 
     def test_suggestion_uses_tencent_ad_info_city_before_fallbacks(self):
         search_fn = self.html.split("function searchPlaces(keyword, city)", 1)[1].split(
