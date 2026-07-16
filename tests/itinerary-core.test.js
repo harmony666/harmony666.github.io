@@ -27,6 +27,39 @@ test('insertPointByTime inserts after equal times and normalizes positions', () 
   assert.deepEqual(result.map((p) => p.position), [1, 2, 3]);
 });
 
+test('normalizePoints sorts each day by time', () => {
+  const result = Core.normalizePoints([
+    point('b', 2, '11:00', 1),
+    point('a', 2, '09:00', 2),
+    point('c', 2, '09:30', 3),
+  ]);
+  assert.deepEqual(result.map((p) => p.id), ['a', 'c', 'b']);
+  assert.deepEqual(result.map((p) => p.position), [1, 2, 3]);
+});
+
+test('updatePoint edits fields and reorders by time', () => {
+  const points = [
+    point('a', 1, '09:00', 1),
+    point('b', 1, '11:00', 2),
+    point('c', 2, '10:00', 1),
+  ];
+  const result = Core.updatePoint(points, {
+    ...point('b', 1, '08:30', 2),
+    title: '早到',
+    name: '早到',
+    desc: '改时间',
+  });
+  assert.deepEqual(
+    result.filter((p) => p.day === 1).map((p) => p.id),
+    ['b', 'a'],
+  );
+  assert.equal(result.find((p) => p.id === 'b').title, '早到');
+  assert.throws(
+    () => Core.updatePoint(points, point('missing', 1, '12:00', 9)),
+    /不存在/,
+  );
+});
+
 test('reorderDay rejects incomplete id lists', () => {
   assert.throws(
     () => Core.reorderDay([point('a', 2, '09:00', 1), point('b', 2, '10:00', 2)], 2, ['a']),
@@ -81,7 +114,7 @@ test('parseImport rejects duplicate ids, invalid day, time, cat, and lng', () =>
   assert.throws(() => Core.parseImport(JSON.stringify(badLng)), /经度/);
 });
 
-test('reorderDay does not change order of other days', () => {
+test('reorderDay keeps other days and time sort wins within a day', () => {
   const points = [
     point('d1a', 1, '09:00', 1),
     point('d1b', 1, '10:00', 2),
@@ -95,6 +128,6 @@ test('reorderDay does not change order of other days', () => {
   );
   assert.deepEqual(
     result.filter((p) => p.day === 2).map((p) => p.id),
-    ['d2b', 'd2a'],
+    ['d2a', 'd2b'],
   );
 });

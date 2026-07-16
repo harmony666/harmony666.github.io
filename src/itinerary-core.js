@@ -31,7 +31,7 @@
     for (let day = 1; day <= 9; day++) {
       valid
         .filter((p) => p.day === day)
-        .sort((a, b) => a.position - b.position || a.time.localeCompare(b.time))
+        .sort((a, b) => a.time.localeCompare(b.time) || String(a.id).localeCompare(String(b.id)))
         .forEach((p, index) => output.push({ ...p, position: index + 1 }));
     }
     return output;
@@ -51,6 +51,13 @@
     }
     day.splice(index, 0, point);
     return normalizePoints(other.concat(day.map((p, i) => ({ ...p, position: i + 1 }))));
+  }
+
+  function updatePoint(points, rawPoint) {
+    const point = validatePoint(rawPoint);
+    const without = points.filter((p) => p.id !== point.id);
+    if (without.length === points.length) throw new Error('要编辑的行程点不存在');
+    return insertPointByTime(without, point);
   }
 
   function reorderDay(points, day, ids) {
@@ -94,6 +101,7 @@
   return {
     normalizePoints,
     insertPointByTime,
+    updatePoint,
     reorderDay,
     createExport,
     parseImport,

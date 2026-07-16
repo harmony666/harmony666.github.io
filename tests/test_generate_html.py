@@ -204,11 +204,12 @@ class GeneratedHtmlTest(unittest.TestCase):
     def test_submit_point_uses_safe_id_and_atomic_candidate_save(self):
         self.assertIn("function submitPoint(formData)", self.html)
         submit_fn = self.html.split("function submitPoint(formData)", 1)[1].split(
-            "function bindTimelineDrag", 1
+            "document.getElementById('pointCancelBtn')", 1
         )[0]
         self.assertIn("crypto.randomUUID", submit_fn)
         self.assertIn("Date.now()", submit_fn)
         self.assertIn("ItineraryCore.insertPointByTime", submit_fn)
+        self.assertIn("ItineraryCore.updatePoint", submit_fn)
         self.assertIn("const previousPoints = POIS", submit_fn)
         self.assertIn("if (!saveState(candidate))", submit_fn)
         self.assertLess(
@@ -220,19 +221,23 @@ class GeneratedHtmlTest(unittest.TestCase):
         self.assertIn("!latText || !lngText", submit_fn)
         self.assertIn(r"/^([01]\d|2[0-3]):[0-5]\d$/.test(time)", submit_fn)
         self.assertNotIn(r"/^\d{2}:\d{2}$/.test(time)", submit_fn)
+        self.assertIn("refreshDayView(day)", submit_fn)
 
-    def test_timeline_cards_support_drag_reordering_with_rollback(self):
-        self.assertIn('draggable="true"', self.html)
-        for event_name in ("dragstart", "dragover", "drop", "dragend"):
-            self.assertIn("addEventListener('" + event_name + "'", self.html)
-        drag_fn = self.html.split("function bindTimelineDrag", 1)[1].split(
+    def test_timeline_cards_support_edit_and_time_sorting(self):
+        self.assertIn('class="edit-btn"', self.html)
+        self.assertIn("function openPointEditorForEdit(pointId)", self.html)
+        self.assertIn('id="pointId"', self.html)
+        self.assertNotIn('draggable="true"', self.html)
+        self.assertNotIn("function bindTimelineDrag", self.html)
+        select_fn = self.html.split("function selectDay(d){", 1)[1].split(
+            "function flyTo(d, num)", 1
+        )[0]
+        self.assertIn("a.time.localeCompare(b.time)", select_fn)
+        timeline_fn = self.html.split("function renderTimeline(d, list){", 1)[1].split(
             "function renderMap", 1
         )[0]
-        self.assertIn("ItineraryCore.reorderDay", drag_fn)
-        self.assertIn("const previousPoints = POIS", drag_fn)
-        self.assertIn("if (!saveState(candidate))", drag_fn)
-        self.assertIn("POIS = previousPoints", drag_fn)
-        self.assertIn("selectDay(day)", drag_fn)
+        self.assertIn("openPointEditorForEdit", timeline_fn)
+        self.assertIn("refreshDayView(day)", self.html)
 
     def test_untrusted_content_is_escaped_in_timeline_info_and_search(self):
         self.assertIn("function escapeHtml(value)", self.html)

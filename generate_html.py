@@ -139,13 +139,13 @@ body{
 .tag{font-size:10.5px; font-weight:700; color:#fff; background:var(--c); border-radius:7px; padding:2px 7px; letter-spacing:.5px}
 .card .num{position:absolute; right:12px; top:12px; width:24px; height:24px; border-radius:50%;
   display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; color:#fff; background:var(--c)}
+.card .edit-btn{position:absolute; right:44px; top:12px; border:1px solid var(--line); background:#fff;
+  color:var(--sub); border-radius:8px; padding:2px 8px; font-size:11px; cursor:pointer}
+.card .edit-btn:hover{border-color:#635bff; color:var(--ink)}
 .card.hotel-card{background:linear-gradient(135deg, #fff8e6 0%, #ffffff 60%);}
 .card.hotel-card .hotel-meta{font-size:12px; color:var(--sub); margin-top:6px; display:flex; gap:10px; flex-wrap:wrap}
 .card.hotel-card .hotel-meta b{color:var(--ink)}
 .card.hotel-card .status{font-size:11px; padding:1px 7px; border-radius:6px; background:var(--c); color:#fff; font-weight:700}
-.card.dragging{opacity:.45}
-.card.drag-before{border-top:3px solid #635bff}
-.card.drag-after{border-bottom:3px solid #635bff}
 .inf{background:#fff;border-radius:14px;padding:12px 14px;min-width:210px;max-width:280px;box-shadow:var(--shadow);
   border-left:5px solid var(--c); font-family:inherit}
 .inf .it{font-size:15px;font-weight:800;color:var(--ink);display:flex;align-items:center;gap:8px}
@@ -211,6 +211,7 @@ body{
   <section class="point-editor">
     <h2 id="pointEditorTitle">添加行程点</h2>
     <form id="pointForm">
+      <input id="pointId" name="pointId" type="hidden">
       <div class="editor-grid">
         <label class="editor-field">DAY
           <input id="pointDay" name="day" type="number" min="1" max="9" required>
@@ -423,6 +424,7 @@ let mapReady = false;
 let curDay = null;
 let mapPickHandler = null;
 let pointSource = 'map_click';
+let editingPointId = null;
 
 function setEditorMessage(message) {
   document.getElementById('pointEditorMessage').textContent = message || '';
@@ -451,11 +453,14 @@ function removeMapPickHandler() {
 }
 
 function openPointEditor() {
+  editingPointId = null;
   const form = document.getElementById('pointForm');
   form.reset();
+  document.getElementById('pointId').value = '';
+  document.getElementById('pointEditorTitle').textContent = '添加行程点';
   const day = curDay || DAYS[0];
   const first = POIS.filter(function(p){ return p.day === day; })
-    .sort(function(a,b){ return a.position - b.position; })[0];
+    .sort(function(a,b){ return a.time.localeCompare(b.time); })[0];
   document.getElementById('pointDay').value = day;
   document.getElementById('pointCity').value = first ? first.city : '';
   document.getElementById('placeResults').replaceChildren();
@@ -465,10 +470,38 @@ function openPointEditor() {
   document.getElementById('pointTime').focus();
 }
 
+function openPointEditorForEdit(pointId) {
+  const p = POIS.find(function(item){ return item.id === pointId; });
+  if (!p) return;
+  editingPointId = p.id;
+  document.getElementById('pointEditorTitle').textContent = '编辑行程点';
+  document.getElementById('pointId').value = p.id;
+  document.getElementById('pointDay').value = p.day;
+  document.getElementById('pointTime').value = p.time;
+  document.getElementById('pointTitle').value = p.title;
+  document.getElementById('pointDescription').value = p.desc || '';
+  document.getElementById('pointCity').value = p.city;
+  document.getElementById('pointCategory').value = p.cat;
+  document.getElementById('pointLat').value = p.lat;
+  document.getElementById('pointLng').value = p.lng;
+  document.getElementById('placeKeyword').value = '';
+  document.getElementById('placeResults').replaceChildren();
+  pointSource = p.source || 'map_click';
+  setEditorMessage('');
+  document.getElementById('pointEditor').classList.add('open');
+  document.getElementById('pointTime').focus();
+}
+
 function closePointEditor() {
+  editingPointId = null;
   removeMapPickHandler();
   document.getElementById('pointEditor').classList.remove('open');
+  document.getElementById('pointId').value = '';
   setEditorMessage('');
+}
+
+function refreshDayView(day) {
+  selectDay(day);
 }
 
 function beginMapPick() {
@@ -554,7 +587,8 @@ async function searchPlaces(keyword, city) {
 
 function submitPoint(formData) {
   const day = Number(formData.get('day'));
-  const time = String(formData.get('time') || '');
+  let time = String(formData.get('time') || '');
+  if (time.length > 5) time = time.slice(0, 5);
   const title = String(formData.get('title') || '').trim();
   const desc = String(formData.get('description') || '').trim();
   const city = String(formData.get('city') || '').trim();
@@ -563,6 +597,7 @@ function submitPoint(formData) {
   const lngText = String(formData.get('lng') || '').trim();
   const lat = Number(latText);
   const lng = Number(lngText);
+  const existingId = String(formData.get('pointId') || editingPointId || '').trim();
   if (!DAYS.includes(day) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time) || !title || !city
       || !Object.prototype.hasOwnProperty.call(CATS, cat)
       || !latText || !lngText || !Number.isFinite(lat) || !Number.isFinite(lng)
@@ -570,86 +605,38 @@ function submitPoint(formData) {
     setEditorMessage('请完整填写有效的必填信息');
     return false;
   }
-  const id = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+  const previousPoints = POIS;
+  const previousDay = existingId
+    ? (POIS.find(function(item){ return item.id === existingId; }) || {}).day
+    : null;
+  const id = existingId || ((typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
     ? crypto.randomUUID()
-    : 'point-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+    : 'point-' + Date.now() + '-' + Math.random().toString(16).slice(2));
   const point = {
     id: id, day: day, cat: cat, time: time, title: title, desc: desc,
     city: city, name: title, lat: lat, lng: lng, source: pointSource
   };
-  const previousPoints = POIS;
   let candidate;
   try {
-    candidate = ItineraryCore.insertPointByTime(previousPoints, point);
+    candidate = existingId
+      ? ItineraryCore.updatePoint(previousPoints, point)
+      : ItineraryCore.insertPointByTime(previousPoints, point);
     if (!saveState(candidate)) {
       POIS = previousPoints;
-      setEditorMessage('保存失败，新增点未提交，请重试或导出 JSON');
+      setEditorMessage('保存失败，变更未提交，请重试或导出 JSON');
       return false;
     }
   } catch (e) {
     POIS = previousPoints;
-    setEditorMessage('新增失败：' + (e && e.message || e));
+    setEditorMessage((existingId ? '编辑' : '新增') + '失败：' + (e && e.message || e));
     return false;
   }
   POIS = candidate;
   document.getElementById('bPoi').textContent = POIS.length;
   closePointEditor();
-  selectDay(day);
+  refreshDayView(day);
+  if (previousDay && previousDay !== day) refreshDayView(previousDay);
   return true;
-}
-
-function bindTimelineDrag(timeline, day) {
-  let draggingCard = null;
-  const cards = Array.from(timeline.querySelectorAll('.card'));
-  function clearFeedback() {
-    cards.forEach(function(card) {
-      card.classList.remove('dragging', 'drag-before', 'drag-after');
-    });
-  }
-  cards.forEach(function(card) {
-    card.addEventListener('dragstart', function(e) {
-      draggingCard = card;
-      card.classList.add('dragging');
-      if (e.dataTransfer) {
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', card.dataset.id);
-      }
-    });
-    card.addEventListener('dragover', function(e) {
-      if (!draggingCard || draggingCard === card) return;
-      e.preventDefault();
-      cards.forEach(function(item){ item.classList.remove('drag-before', 'drag-after'); });
-      const before = e.clientY < card.getBoundingClientRect().top + card.offsetHeight / 2;
-      card.classList.add(before ? 'drag-before' : 'drag-after');
-      timeline.insertBefore(draggingCard, before ? card : card.nextSibling);
-    });
-    card.addEventListener('drop', function(e) {
-      if (!draggingCard) return;
-      e.preventDefault();
-      const previousPoints = POIS;
-      try {
-        const orderedIds = Array.from(timeline.querySelectorAll('.card')).map(function(item) {
-          return item.dataset.id;
-        });
-        const candidate = ItineraryCore.reorderDay(previousPoints, day, orderedIds);
-        if (!saveState(candidate)) {
-          POIS = previousPoints;
-          selectDay(day);
-          return;
-        }
-        POIS = candidate;
-        selectDay(day);
-      } catch (error) {
-        POIS = previousPoints;
-        setSaveStatus('排序失败，已恢复原顺序', true);
-        selectDay(day);
-      }
-    });
-    card.addEventListener('dragend', function() {
-      draggingCard = null;
-      clearFeedback();
-    });
-  });
 }
 
 document.getElementById('pointCancelBtn').addEventListener('click', closePointEditor);
@@ -719,7 +706,7 @@ function renderTimeline(d, list){
     const c = CATS[p.cat];
     const isHotel = p.cat === 'hotel';
     const cardCls = isHotel ? 'card hotel-card' : 'card';
-    html += '<div class="'+cardCls+'" draggable="true" data-id="'+escapeHtml(p.id)+'" style="--c:'+c.color+'">'
+    html += '<div class="'+cardCls+'" data-id="'+escapeHtml(p.id)+'" style="--c:'+c.color+'">'
       + '<div class="rail"></div>'
       + '<div class="time">'+escapeHtml(p.time)+'</div>'
       + '<div class="body">'
@@ -735,7 +722,8 @@ function renderTimeline(d, list){
           + '</div>';
       }
     }
-    html += '</div><div class="num">'+p.position+'</div></div>';
+    html += '</div><button type="button" class="edit-btn" data-id="'+escapeHtml(p.id)+'">编辑</button>'
+      + '<div class="num">'+p.position+'</div></div>';
   });
   t.innerHTML = html;
   t.scrollTop = 0;
@@ -745,7 +733,12 @@ function renderTimeline(d, list){
       if (point) flyTo(d, point.position);
     });
   });
-  bindTimelineDrag(t, d);
+  Array.from(t.querySelectorAll('.edit-btn')).forEach(function(btn){
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      openPointEditorForEdit(btn.dataset.id);
+    });
+  });
 }
 
 function renderMap(d, list){
@@ -818,7 +811,7 @@ function selectDay(d){
     t.classList.toggle('active', parseInt(t.dataset.day,10) === d);
   });
   const list = POIS.filter(function(p){ return p.day === d; })
-    .sort(function(a,b){ return a.position - b.position; });
+    .sort(function(a,b){ return a.time.localeCompare(b.time); });
   renderTimeline(d, list);
   if (isMapAvailable()) renderMap(d, list);
 }
@@ -895,4 +888,5 @@ HTML = (HTML
     .replace("__HOTELS__", hotels_js))
 
 (ROOT / "itinerary.html").write_text(HTML, encoding="utf-8")
-print("OK v3 itinerary.html  total=¥%d  pois=%d days=%d" % (total, len(data), len(days)))
+(ROOT / "index.html").write_text(HTML, encoding="utf-8")
+print("OK v3 itinerary.html + index.html  total=¥%d  pois=%d days=%d" % (total, len(data), len(days)))
