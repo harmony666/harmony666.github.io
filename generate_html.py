@@ -239,10 +239,11 @@ function saveState(points) {
 }
 
 function exportJson() {
+  let url = null;
   try {
     const doc = ItineraryCore.createExport(POIS, '武汉 → 山东 9日旅行计划', new Date());
     const blob = new Blob([JSON.stringify(doc, null, 2)], {type: 'application/json;charset=utf-8'});
-    const url = URL.createObjectURL(blob);
+    url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     const date = new Date().toISOString().slice(0, 10);
     link.href = url;
@@ -250,38 +251,61 @@ function exportJson() {
     document.body.appendChild(link);
     link.click();
     link.remove();
-    URL.revokeObjectURL(url);
     setSaveStatus('JSON 已导出', false);
   } catch (e) {
     setSaveStatus('导出失败，请稍后重试', true);
+  } finally {
+    if (url !== null) URL.revokeObjectURL(url);
   }
+}
+
+function restoreStoredState(raw) {
+  if (raw === null) localStorage.removeItem(STORAGE_KEY);
+  else localStorage.setItem(STORAGE_KEY, raw);
 }
 
 async function importJson(file) {
   const previous = POIS;
+  let previousStored;
+  let storageMayHaveChanged = false;
   try {
     const text = await file.text();
     const imported = ItineraryCore.parseImport(text);
     if (!confirm('导入会替换当前行程，是否继续？')) return;
+    previousStored = localStorage.getItem(STORAGE_KEY);
+    storageMayHaveChanged = true;
     POIS = imported.points;
     if (!saveState(POIS)) {
-      POIS = previous;
-      setSaveStatus('导入失败：无法保存，当前行程未改变', true);
-      return;
+      throw new Error('无法保存导入的行程');
     }
     document.getElementById('bPoi').textContent = POIS.length;
     if (curDay !== null) selectDay(curDay);
     setSaveStatus('JSON 已导入', false);
   } catch (e) {
     POIS = previous;
-    setSaveStatus('导入失败：' + (e && e.message || e), true);
+    let rollbackError = null;
+    if (storageMayHaveChanged) {
+      try { restoreStoredState(previousStored); } catch (restoreError) { rollbackError = restoreError; }
+    }
+    try {
+      document.getElementById('bPoi').textContent = POIS.length;
+      if (curDay !== null) selectDay(curDay);
+    } catch (_) {}
+    const suffix = rollbackError ? '；原保存状态恢复失败，请立即导出' : '';
+    setSaveStatus('导入失败：' + (e && e.message || e) + suffix, true);
   }
 }
 
 function resetToBase() {
   if (!confirm('确定恢复初始行程吗？当前修改将被覆盖。')) return;
-  POIS = ItineraryCore.normalizePoints(BASE_POIS.map(function(p){ return Object.assign({}, p); }));
-  localStorage.removeItem(STORAGE_KEY);
+  const base = ItineraryCore.normalizePoints(BASE_POIS.map(function(p){ return Object.assign({}, p); }));
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch (e) {
+    setSaveStatus('恢复失败：无法清除自动保存，当前行程未改变', true);
+    return;
+  }
+  POIS = base;
   document.getElementById('bPoi').textContent = POIS.length;
   setSaveStatus('已恢复初始行程', false);
   if (curDay !== null) selectDay(curDay);
@@ -324,9 +348,9 @@ DAYS.forEach(function(d){
 let map, multiMarker, multiPoly, infoWin;
 let curDay = null;
 
-function markerStyles() {
+function markerStyles(points) {
   const styles = {};
-  BASE_POIS.forEach(function(p) {
+  points.forEach(function(p) {
     const svg = ItineraryCore.buildNumberedPinSvg(p.position, CATS[p.cat].color);
     styles[p.id] = new TMap.MarkerStyle({
       src: 'data:image/svg+xml,' + encodeURIComponent(svg),
@@ -350,9 +374,9 @@ function polylineStyle() {
 }
 
 function initMap(){
-  const c0 = POIS[0];
+  const c0 = POIS[0] || {lat: 30.5928, lng: 114.3055};
   map = new TMap.Map('map', { center: new TMap.LatLng(c0.lat, c0.lng), zoom: 12 });
-  multiMarker = new TMap.MultiMarker({ map: map, styles: markerStyles(), geometries: [] });
+  multiMarker = new TMap.MultiMarker({ map: map, styles: markerStyles(POIS), geometries: [] });
   multiPoly = new TMap.MultiPolyline({ map: map, styles: { route: polylineStyle() }, geometries: [] });
   try { multiPoly.setZIndex(100); } catch(_) {}
   try { multiMarker.setZIndex(200); } catch(_) {}
@@ -420,6 +444,7 @@ function renderMap(d, list){
   // 渲染覆盖物（marker + polyline），setGeometries 内部清空旧的再加新的
   try {
     if (!multiMarker || !multiPoly) throw new Error('覆盖物未初始化');
+    multiMarker.setStyles(markerStyles(list));
     multiMarker.setGeometries(geoms);
     multiPoly.setGeometries(list.length >= 2 ? [{
       id: 'route_' + d,

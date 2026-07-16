@@ -90,6 +90,49 @@ class GeneratedHtmlTest(unittest.TestCase):
         self.assertIn("BASE_POIS", reset_fn)
         self.assertIn("selectDay(curDay)", reset_fn)
 
+    def test_map_styles_follow_rendered_points_and_empty_itinerary_has_default_center(self):
+        marker_styles = self.html.split("function markerStyles(", 1)[1].split(
+            "function polylineStyle()", 1
+        )[0]
+        init_map = self.html.split("function initMap(){", 1)[1].split(
+            "function renderTimeline", 1
+        )[0]
+        render_map = self.html.split("function renderMap(d, list){", 1)[1].split(
+            "function selectDay(d){", 1
+        )[0]
+        self.assertIn("points.forEach", marker_styles)
+        self.assertNotIn("BASE_POIS.forEach", marker_styles)
+        self.assertIn("POIS[0] ||", init_map)
+        self.assertIn("multiMarker.setStyles(markerStyles(list))", render_map)
+
+    def test_import_rolls_back_points_and_exact_storage_snapshot_after_late_failure(self):
+        import_fn = self.html.split("function importJson(file)", 1)[1].split(
+            "function resetToBase()", 1
+        )[0]
+        self.assertIn("previousStored = localStorage.getItem(STORAGE_KEY)", import_fn)
+        self.assertIn("restoreStoredState(previousStored)", import_fn)
+        self.assertIn("POIS = previous", import_fn)
+        self.assertLess(import_fn.index("saveState(POIS)"),
+                        import_fn.index("document.getElementById('bPoi')"))
+
+    def test_reset_does_not_mutate_points_before_storage_removal_succeeds(self):
+        reset_fn = self.html.split("function resetToBase()", 1)[1].split(
+            "function boot()", 1
+        )[0]
+        self.assertIn("try {", reset_fn)
+        self.assertIn("catch", reset_fn)
+        self.assertIn("恢复失败", reset_fn)
+        self.assertLess(reset_fn.index("localStorage.removeItem(STORAGE_KEY)"),
+                        reset_fn.index("POIS ="))
+
+    def test_export_revokes_object_url_in_finally(self):
+        export_fn = self.html.split("function exportJson()", 1)[1].split(
+            "function importJson(file)", 1
+        )[0]
+        self.assertIn("finally", export_fn)
+        self.assertLess(export_fn.index("finally"),
+                        export_fn.index("URL.revokeObjectURL"))
+
 
 if __name__ == "__main__":
     unittest.main()
