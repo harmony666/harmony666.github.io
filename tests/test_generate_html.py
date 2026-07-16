@@ -43,7 +43,7 @@ class GeneratedHtmlTest(unittest.TestCase):
         )
 
     def test_generator_works_from_project_parent_directory(self):
-        subprocess.run([PYTHON, "static-itinerary-editor/generate_html.py"],
+        subprocess.run([PYTHON, str(ROOT / "generate_html.py")],
                        cwd=ROOT.parent, check=True)
         self.assertTrue((ROOT / "itinerary.html").is_file())
 
