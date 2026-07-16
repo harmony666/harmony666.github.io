@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>武汉 → 山东 9日旅行计划</title>
-<script src="https://map.qq.com/api/gljs?v=1&key=B6VBZ-V75KG-HBEQP-IRLIB-ANBLZ-W6BD5"></script>
+<script src="https://map.qq.com/api/gljs?v=1&key=B6VBZ-V75KG-HBEQP-IRLIB-ANBLZ-W6BD5&libraries=service"></script>
 <style>
 :root{
   --ink:#0a2540; --sub:#425466; --muted:#8898aa; --line:#e6eaf2;
@@ -109,17 +109,118 @@ body{
     <div class="map-legend" id="legend"></div>
   </aside>
 </main>
+<script>(function (root, factory) {
+  const api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else root.ItineraryCore = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+  const CATEGORIES = new Set(['scenic', 'food', 'culture', 'shop', 'transit', 'hotel']);
+  const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+  function validatePoint(raw) {
+    const p = {
+      ...raw,
+      day: Number(raw.day),
+      position: Number(raw.position),
+      lat: Number(raw.lat),
+      lng: Number(raw.lng),
+    };
+    if (!p.id || !String(p.id).trim()) throw new Error('点 ID 不能为空');
+    if (!Number.isInteger(p.day) || p.day < 1 || p.day > 9) throw new Error('日期无效');
+    if (!TIME_RE.test(p.time)) throw new Error('时间格式无效');
+    if (!CATEGORIES.has(p.cat)) throw new Error('类别无效');
+    if (!Number.isFinite(p.lat) || p.lat < -90 || p.lat > 90) throw new Error('纬度无效');
+    if (!Number.isFinite(p.lng) || p.lng < -180 || p.lng > 180) throw new Error('经度无效');
+    return p;
+  }
+
+  function normalizePoints(points) {
+    const valid = points.map(validatePoint);
+    if (new Set(valid.map((p) => p.id)).size !== valid.length) throw new Error('点 ID 必须唯一');
+    const output = [];
+    for (let day = 1; day <= 9; day++) {
+      valid
+        .filter((p) => p.day === day)
+        .sort((a, b) => a.position - b.position || a.time.localeCompare(b.time))
+        .forEach((p, index) => output.push({ ...p, position: index + 1 }));
+    }
+    return output;
+  }
+
+  function insertPointByTime(points, rawPoint) {
+    const point = validatePoint(rawPoint);
+    const other = points.filter((p) => p.day !== point.day);
+    const day = points.filter((p) => p.day === point.day);
+    let index = day.length;
+    for (let i = day.length - 1; i >= 0; i--) {
+      if (day[i].time <= point.time) {
+        index = i + 1;
+        break;
+      }
+      index = 0;
+    }
+    day.splice(index, 0, point);
+    return normalizePoints(other.concat(day.map((p, i) => ({ ...p, position: i + 1 }))));
+  }
+
+  function reorderDay(points, day, ids) {
+    const selected = points.filter((p) => p.day === day);
+    if (
+      ids.length !== selected.length ||
+      new Set(ids).size !== ids.length ||
+      ids.some((id) => !selected.some((p) => p.id === id))
+    ) {
+      throw new Error('排序 ID 必须完整且唯一');
+    }
+    const byId = new Map(selected.map((p) => [p.id, p]));
+    return normalizePoints(
+      points
+        .filter((p) => p.day !== day)
+        .concat(ids.map((id, i) => ({ ...byId.get(id), position: i + 1 }))),
+    );
+  }
+
+  function createExport(points, title, now) {
+    return {
+      schemaVersion: 1,
+      exportedAt: now.toISOString(),
+      title,
+      points: normalizePoints(points),
+    };
+  }
+
+  function parseImport(text) {
+    const doc = JSON.parse(text);
+    if (!doc || doc.schemaVersion !== 1 || !Array.isArray(doc.points)) {
+      throw new Error('不支持的行程文件格式');
+    }
+    return { ...doc, points: normalizePoints(doc.points) };
+  }
+
+  function buildNumberedPinSvg(number, color) {
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="42"><path fill="${color}" stroke="#fff" stroke-width="2" d="M18 1C8.6 1 2 8 2 17c0 12 16 24 16 24s16-12 16-24C34 8 27.4 1 18 1z"/><text x="18" y="22" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">${number}</text></svg>`;
+  }
+
+  return {
+    normalizePoints,
+    insertPointByTime,
+    reorderDay,
+    createExport,
+    parseImport,
+    buildNumberedPinSvg,
+  };
+});
+</script>
 <script>
 const KEY = "B6VBZ-V75KG-HBEQP-IRLIB-ANBLZ-W6BD5";
-const POIS = [{"day": 1, "cat": "transit", "time": "11:05", "title": "抵达济南", "desc": "航班 9:40 武汉天河→11:05 济南遥墙", "city": "济南", "name": "济南遥墙国际机场", "lat": 36.857395, "lng": 117.218815, "num": 1}, {"day": 1, "cat": "culture", "time": "14:00", "title": "趵突泉", "desc": "天下第一泉，泉城标志性名泉", "city": "济南", "name": "趵突泉", "lat": 36.660958, "lng": 117.016158, "num": 2}, {"day": 1, "cat": "scenic", "time": "15:30", "title": "五龙潭公园", "desc": "清泉绿潭，闹市中的幽静园林", "city": "济南", "name": "五龙潭公园", "lat": 36.66605, "lng": 117.01482, "num": 3}, {"day": 1, "cat": "scenic", "time": "16:30", "title": "泉城广场", "desc": "济南城市客厅，泉城路商圈", "city": "济南", "name": "泉城广场", "lat": 36.661304, "lng": 117.022195, "num": 4}, {"day": 1, "cat": "food", "time": "18:00", "title": "芙蓉街", "desc": "老城美食街，油旋/把子肉/鲁菜小吃", "city": "济南", "name": "芙蓉街", "lat": 36.666999, "lng": 117.023781, "num": 5}, {"day": 1, "cat": "scenic", "time": "19:30", "title": "大明湖(夜游)", "desc": "四面荷花三面柳，夏雨荷故地", "city": "济南", "name": "大明湖", "lat": 36.681356, "lng": 117.029124, "num": 6}, {"day": 1, "cat": "hotel", "time": "21:30", "title": "济南住宿·天桥区", "desc": "恒大滨河左岸D9公寓(已订 ¥138)", "city": "济南", "name": "天桥区小清河北路恒大滨河左岸", "lat": 36.704849, "lng": 117.027676, "num": 7}, {"day": 2, "cat": "scenic", "time": "09:00", "title": "千佛山", "desc": "城东南名胜，佛教石刻与俯城视野", "city": "济南", "name": "千佛山", "lat": 36.64518, "lng": 117.037094, "num": 1}, {"day": 2, "cat": "culture", "time": "11:00", "title": "山东省博物馆", "desc": "齐鲁文明通史，亚醜钺等馆藏", "city": "济南", "name": "山东省博物馆", "lat": 36.658497, "lng": 117.095645, "num": 2}, {"day": 2, "cat": "culture", "time": "13:00", "title": "山东美术馆", "desc": "现代艺术展陈，免费参观", "city": "济南", "name": "山东美术馆", "lat": 36.657698, "lng": 117.097938, "num": 3}, {"day": 2, "cat": "culture", "time": "15:00", "title": "洪家楼教堂", "desc": "华北最大哥特式天主教堂", "city": "济南", "name": "洪家楼教堂", "lat": 36.686233, "lng": 117.066081, "num": 4}, {"day": 2, "cat": "food", "time": "18:00", "title": "宽厚里", "desc": "古风商业街，鲁味夜宵与文创", "city": "济南", "name": "宽厚里", "lat": 36.663521, "lng": 117.031124, "num": 5}, {"day": 2, "cat": "transit", "time": "20:42", "title": "济南站出发", "desc": "20:42 硬卧 Z 字头→次日 5:30 威海", "city": "济南", "name": "济南站", "lat": 36.67072, "lng": 116.990934, "num": 6}, {"day": 3, "cat": "transit", "time": "05:30", "title": "抵达威海·取车", "desc": "5:30 到站，7:00 一嗨取车(秦PLUS)", "city": "威海", "name": "威海站", "lat": 37.426952, "lng": 122.143769, "num": 1}, {"day": 3, "cat": "culture", "time": "09:00", "title": "刘公岛", "desc": "甲午战争纪念地，北洋海军遗址", "city": "威海", "name": "刘公岛", "lat": 37.504472, "lng": 122.190461, "num": 2}, {"day": 3, "cat": "scenic", "time": "14:00", "title": "威海公园", "desc": "海滨带状公园，画中画地标", "city": "威海", "name": "威海公园", "lat": 37.46539, "lng": 122.144826, "num": 3}, {"day": 3, "cat": "scenic", "time": "15:30", "title": "幸福门", "desc": "威海地标拱门，登高看海", "city": "威海", "name": "幸福门广场", "lat": 37.501473, "lng": 122.127677, "num": 4}, {"day": 3, "cat": "culture", "time": "17:00", "title": "环翠楼", "desc": "城市观景楼，俯瞰威海湾", "city": "威海", "name": "环翠楼公园", "lat": 37.505013, "lng": 122.108185, "num": 5}, {"day": 3, "cat": "hotel", "time": "19:30", "title": "威海住宿·山大路", "desc": "山大路15-6号建设银行旁(已订 ¥352)", "city": "威海", "name": "高新区山大路15-6号", "lat": 37.524481, "lng": 122.06124, "num": 6}, {"day": 4, "cat": "scenic", "time": "08:00", "title": "成山头", "desc": "天之尽头，中国大陆最东端", "city": "威海", "name": "成山头", "lat": 37.402266, "lng": 122.698754, "num": 1}, {"day": 4, "cat": "scenic", "time": "11:00", "title": "那香海", "desc": "钻石沙滩，滨海度假带", "city": "威海", "name": "那香海", "lat": 37.408857, "lng": 122.408466, "num": 2}, {"day": 4, "cat": "scenic", "time": "14:00", "title": "鸡鸣岛", "desc": "海岛渔村，《爸爸去哪儿》取景", "city": "威海", "name": "鸡鸣岛", "lat": 37.430813, "lng": 122.484874, "num": 3}, {"day": 4, "cat": "scenic", "time": "17:00", "title": "国际海水浴场", "desc": "傍晚踏浪游泳，日落最美", "city": "威海", "name": "国际海水浴场", "lat": 37.529038, "lng": 122.045212, "num": 4}, {"day": 4, "cat": "hotel", "time": "19:30", "title": "威海住宿·山大路(继续住)", "desc": "继续住山大路", "city": "威海", "name": "高新区山大路15-6号", "lat": 37.524481, "lng": 122.06124, "num": 5}, {"day": 5, "cat": "scenic", "time": "08:00", "title": "猫头山", "desc": "威海最美海岸线观景公路", "city": "威海", "name": "猫头山", "lat": 37.555, "lng": 122.1479, "num": 1}, {"day": 5, "cat": "culture", "time": "12:00", "title": "烟台山", "desc": "近代开埠领事馆建筑群+灯塔", "city": "烟台", "name": "烟台山", "lat": 37.546603, "lng": 121.402332, "num": 2}, {"day": 5, "cat": "food", "time": "15:00", "title": "朝阳街", "desc": "红酒文化街区，洋房美食", "city": "烟台", "name": "朝阳街", "lat": 37.544034, "lng": 121.401875, "num": 3}, {"day": 5, "cat": "culture", "time": "17:00", "title": "所城里", "desc": "烟台古城，明代所城肌理", "city": "烟台", "name": "所城里", "lat": 37.536403, "lng": 121.399737, "num": 4}, {"day": 5, "cat": "hotel", "time": "20:00", "title": "烟台住宿·金海湾", "desc": "烟台山旁海景(推荐 ¥400)", "city": "烟台", "name": "烟台金海湾酒店", "lat": 37.54738, "lng": 121.403291, "num": 5}, {"day": 6, "cat": "scenic", "time": "08:30", "title": "养马岛", "desc": "东方马尔代夫，环岛滨海路", "city": "烟台", "name": "养马岛", "lat": 37.466471, "lng": 121.619616, "num": 1}, {"day": 6, "cat": "culture", "time": "13:00", "title": "蓬莱阁", "desc": "我国古代四大名楼，八仙故里", "city": "烟台", "name": "蓬莱阁", "lat": 37.826972, "lng": 120.754009, "num": 2}, {"day": 6, "cat": "scenic", "time": "15:30", "title": "八仙过海景区", "desc": "海上园林，八仙过海传说地", "city": "烟台", "name": "八仙过海景区", "lat": 37.825645, "lng": 120.775532, "num": 3}, {"day": 6, "cat": "shop", "time": "19:00", "title": "大悦城", "desc": "滨海商圈，夜生活与购物", "city": "烟台", "name": "烟台大悦城", "lat": 37.54555, "lng": 121.387269, "num": 4}, {"day": 6, "cat": "hotel", "time": "21:00", "title": "烟台住宿·金海湾(继续住)", "desc": "继续住金海湾", "city": "烟台", "name": "烟台金海湾酒店", "lat": 37.54738, "lng": 121.403291, "num": 5}, {"day": 7, "cat": "culture", "time": "09:00", "title": "张裕酒文化博物馆", "desc": "中国葡萄酒工业发源地", "city": "烟台", "name": "张裕酒文化博物馆", "lat": 37.541816, "lng": 121.405855, "num": 1}, {"day": 7, "cat": "scenic", "time": "11:00", "title": "第一海水浴场", "desc": "烟台核心浴场，沙滩漫步", "city": "烟台", "name": "第一海水浴场", "lat": 37.536521, "lng": 121.419581, "num": 2}, {"day": 7, "cat": "shop", "time": "13:00", "title": "渔人码头(午餐)", "desc": "烟台山旁欧风码头，海鲜西餐", "city": "烟台", "name": "渔人码头", "lat": 37.5462, "lng": 121.4083, "num": 3}, {"day": 7, "cat": "food", "time": "18:00", "title": "韩乐坊", "desc": "威海韩风夜市，烤肉/海鲜夜宵", "city": "威海", "name": "韩乐坊", "lat": 37.429351, "lng": 122.152957, "num": 4}, {"day": 7, "cat": "hotel", "time": "20:30", "title": "威海站住宿·汉庭", "desc": "汉庭威海火车站店(推荐 ¥150)", "city": "威海", "name": "汉庭酒店威海火车站店", "lat": 37.419152, "lng": 122.15158, "num": 5}, {"day": 8, "cat": "scenic", "time": "07:00", "title": "火炬八街", "desc": "清晨打卡威海小镰仓", "city": "威海", "name": "火炬八街", "lat": 37.522772, "lng": 122.031309, "num": 1}, {"day": 8, "cat": "scenic", "time": "08:00", "title": "国际海水浴场(最后玩海)", "desc": "最后玩海，留念拍照", "city": "威海", "name": "国际海水浴场", "lat": 37.529038, "lng": 122.045212, "num": 2}, {"day": 8, "cat": "transit", "time": "09:19", "title": "威海站发车", "desc": "9:19 硬卧→次日 5:03 武昌", "city": "威海", "name": "威海站", "lat": 37.426952, "lng": 122.143769, "num": 3}, {"day": 9, "cat": "transit", "time": "05:03", "title": "抵达武昌", "desc": "行程结束，平安到家", "city": "武汉", "name": "武昌站", "lat": 30.528671, "lng": 114.317792, "num": 1}];
+const BASE_POIS = [{"id": "seed-1-1", "day": 1, "cat": "transit", "time": "11:05", "title": "抵达济南", "desc": "航班 9:40 武汉天河→11:05 济南遥墙", "city": "济南", "name": "济南遥墙国际机场", "lat": 36.857395, "lng": 117.218815, "position": 1}, {"id": "seed-1-2", "day": 1, "cat": "culture", "time": "14:00", "title": "趵突泉", "desc": "天下第一泉，泉城标志性名泉", "city": "济南", "name": "趵突泉", "lat": 36.660958, "lng": 117.016158, "position": 2}, {"id": "seed-1-3", "day": 1, "cat": "scenic", "time": "15:30", "title": "五龙潭公园", "desc": "清泉绿潭，闹市中的幽静园林", "city": "济南", "name": "五龙潭公园", "lat": 36.66605, "lng": 117.01482, "position": 3}, {"id": "seed-1-4", "day": 1, "cat": "scenic", "time": "16:30", "title": "泉城广场", "desc": "济南城市客厅，泉城路商圈", "city": "济南", "name": "泉城广场", "lat": 36.661304, "lng": 117.022195, "position": 4}, {"id": "seed-1-5", "day": 1, "cat": "food", "time": "18:00", "title": "芙蓉街", "desc": "老城美食街，油旋/把子肉/鲁菜小吃", "city": "济南", "name": "芙蓉街", "lat": 36.666999, "lng": 117.023781, "position": 5}, {"id": "seed-1-6", "day": 1, "cat": "scenic", "time": "19:30", "title": "大明湖(夜游)", "desc": "四面荷花三面柳，夏雨荷故地", "city": "济南", "name": "大明湖", "lat": 36.681356, "lng": 117.029124, "position": 6}, {"id": "seed-1-7", "day": 1, "cat": "hotel", "time": "21:30", "title": "济南住宿·天桥区", "desc": "恒大滨河左岸D9公寓(已订 ¥138)", "city": "济南", "name": "天桥区小清河北路恒大滨河左岸", "lat": 36.704849, "lng": 117.027676, "position": 7}, {"id": "seed-2-1", "day": 2, "cat": "scenic", "time": "09:00", "title": "千佛山", "desc": "城东南名胜，佛教石刻与俯城视野", "city": "济南", "name": "千佛山", "lat": 36.64518, "lng": 117.037094, "position": 1}, {"id": "seed-2-2", "day": 2, "cat": "culture", "time": "11:00", "title": "山东省博物馆", "desc": "齐鲁文明通史，亚醜钺等馆藏", "city": "济南", "name": "山东省博物馆", "lat": 36.658497, "lng": 117.095645, "position": 2}, {"id": "seed-2-3", "day": 2, "cat": "culture", "time": "13:00", "title": "山东美术馆", "desc": "现代艺术展陈，免费参观", "city": "济南", "name": "山东美术馆", "lat": 36.657698, "lng": 117.097938, "position": 3}, {"id": "seed-2-4", "day": 2, "cat": "culture", "time": "15:00", "title": "洪家楼教堂", "desc": "华北最大哥特式天主教堂", "city": "济南", "name": "洪家楼教堂", "lat": 36.686233, "lng": 117.066081, "position": 4}, {"id": "seed-2-5", "day": 2, "cat": "food", "time": "18:00", "title": "宽厚里", "desc": "古风商业街，鲁味夜宵与文创", "city": "济南", "name": "宽厚里", "lat": 36.663521, "lng": 117.031124, "position": 5}, {"id": "seed-2-6", "day": 2, "cat": "transit", "time": "20:42", "title": "济南站出发", "desc": "20:42 硬卧 Z 字头→次日 5:30 威海", "city": "济南", "name": "济南站", "lat": 36.67072, "lng": 116.990934, "position": 6}, {"id": "seed-3-1", "day": 3, "cat": "transit", "time": "05:30", "title": "抵达威海·取车", "desc": "5:30 到站，7:00 一嗨取车(秦PLUS)", "city": "威海", "name": "威海站", "lat": 37.426952, "lng": 122.143769, "position": 1}, {"id": "seed-3-2", "day": 3, "cat": "culture", "time": "09:00", "title": "刘公岛", "desc": "甲午战争纪念地，北洋海军遗址", "city": "威海", "name": "刘公岛", "lat": 37.504472, "lng": 122.190461, "position": 2}, {"id": "seed-3-3", "day": 3, "cat": "scenic", "time": "14:00", "title": "威海公园", "desc": "海滨带状公园，画中画地标", "city": "威海", "name": "威海公园", "lat": 37.46539, "lng": 122.144826, "position": 3}, {"id": "seed-3-4", "day": 3, "cat": "scenic", "time": "15:30", "title": "幸福门", "desc": "威海地标拱门，登高看海", "city": "威海", "name": "幸福门广场", "lat": 37.501473, "lng": 122.127677, "position": 4}, {"id": "seed-3-5", "day": 3, "cat": "culture", "time": "17:00", "title": "环翠楼", "desc": "城市观景楼，俯瞰威海湾", "city": "威海", "name": "环翠楼公园", "lat": 37.505013, "lng": 122.108185, "position": 5}, {"id": "seed-3-6", "day": 3, "cat": "hotel", "time": "19:30", "title": "威海住宿·山大路", "desc": "山大路15-6号建设银行旁(已订 ¥352)", "city": "威海", "name": "高新区山大路15-6号", "lat": 37.524481, "lng": 122.06124, "position": 6}, {"id": "seed-4-1", "day": 4, "cat": "scenic", "time": "08:00", "title": "成山头", "desc": "天之尽头，中国大陆最东端", "city": "威海", "name": "成山头", "lat": 37.402266, "lng": 122.698754, "position": 1}, {"id": "seed-4-2", "day": 4, "cat": "scenic", "time": "11:00", "title": "那香海", "desc": "钻石沙滩，滨海度假带", "city": "威海", "name": "那香海", "lat": 37.408857, "lng": 122.408466, "position": 2}, {"id": "seed-4-3", "day": 4, "cat": "scenic", "time": "14:00", "title": "鸡鸣岛", "desc": "海岛渔村，《爸爸去哪儿》取景", "city": "威海", "name": "鸡鸣岛", "lat": 37.430813, "lng": 122.484874, "position": 3}, {"id": "seed-4-4", "day": 4, "cat": "scenic", "time": "17:00", "title": "国际海水浴场", "desc": "傍晚踏浪游泳，日落最美", "city": "威海", "name": "国际海水浴场", "lat": 37.529038, "lng": 122.045212, "position": 4}, {"id": "seed-4-5", "day": 4, "cat": "hotel", "time": "19:30", "title": "威海住宿·山大路(继续住)", "desc": "继续住山大路", "city": "威海", "name": "高新区山大路15-6号", "lat": 37.524481, "lng": 122.06124, "position": 5}, {"id": "seed-5-1", "day": 5, "cat": "scenic", "time": "08:00", "title": "猫头山", "desc": "威海最美海岸线观景公路", "city": "威海", "name": "猫头山", "lat": 37.555, "lng": 122.1479, "position": 1}, {"id": "seed-5-2", "day": 5, "cat": "culture", "time": "12:00", "title": "烟台山", "desc": "近代开埠领事馆建筑群+灯塔", "city": "烟台", "name": "烟台山", "lat": 37.546603, "lng": 121.402332, "position": 2}, {"id": "seed-5-3", "day": 5, "cat": "food", "time": "15:00", "title": "朝阳街", "desc": "红酒文化街区，洋房美食", "city": "烟台", "name": "朝阳街", "lat": 37.544034, "lng": 121.401875, "position": 3}, {"id": "seed-5-4", "day": 5, "cat": "culture", "time": "17:00", "title": "所城里", "desc": "烟台古城，明代所城肌理", "city": "烟台", "name": "所城里", "lat": 37.536403, "lng": 121.399737, "position": 4}, {"id": "seed-5-5", "day": 5, "cat": "hotel", "time": "20:00", "title": "烟台住宿·金海湾", "desc": "烟台山旁海景(推荐 ¥400)", "city": "烟台", "name": "烟台金海湾酒店", "lat": 37.54738, "lng": 121.403291, "position": 5}, {"id": "seed-6-1", "day": 6, "cat": "scenic", "time": "08:30", "title": "养马岛", "desc": "东方马尔代夫，环岛滨海路", "city": "烟台", "name": "养马岛", "lat": 37.466471, "lng": 121.619616, "position": 1}, {"id": "seed-6-2", "day": 6, "cat": "culture", "time": "13:00", "title": "蓬莱阁", "desc": "我国古代四大名楼，八仙故里", "city": "烟台", "name": "蓬莱阁", "lat": 37.826972, "lng": 120.754009, "position": 2}, {"id": "seed-6-3", "day": 6, "cat": "scenic", "time": "15:30", "title": "八仙过海景区", "desc": "海上园林，八仙过海传说地", "city": "烟台", "name": "八仙过海景区", "lat": 37.825645, "lng": 120.775532, "position": 3}, {"id": "seed-6-4", "day": 6, "cat": "shop", "time": "19:00", "title": "大悦城", "desc": "滨海商圈，夜生活与购物", "city": "烟台", "name": "烟台大悦城", "lat": 37.54555, "lng": 121.387269, "position": 4}, {"id": "seed-6-5", "day": 6, "cat": "hotel", "time": "21:00", "title": "烟台住宿·金海湾(继续住)", "desc": "继续住金海湾", "city": "烟台", "name": "烟台金海湾酒店", "lat": 37.54738, "lng": 121.403291, "position": 5}, {"id": "seed-7-1", "day": 7, "cat": "culture", "time": "09:00", "title": "张裕酒文化博物馆", "desc": "中国葡萄酒工业发源地", "city": "烟台", "name": "张裕酒文化博物馆", "lat": 37.541816, "lng": 121.405855, "position": 1}, {"id": "seed-7-2", "day": 7, "cat": "scenic", "time": "11:00", "title": "第一海水浴场", "desc": "烟台核心浴场，沙滩漫步", "city": "烟台", "name": "第一海水浴场", "lat": 37.536521, "lng": 121.419581, "position": 2}, {"id": "seed-7-3", "day": 7, "cat": "shop", "time": "13:00", "title": "渔人码头(午餐)", "desc": "烟台山旁欧风码头，海鲜西餐", "city": "烟台", "name": "渔人码头", "lat": 37.5462, "lng": 121.4083, "position": 3}, {"id": "seed-7-4", "day": 7, "cat": "food", "time": "18:00", "title": "韩乐坊", "desc": "威海韩风夜市，烤肉/海鲜夜宵", "city": "威海", "name": "韩乐坊", "lat": 37.429351, "lng": 122.152957, "position": 4}, {"id": "seed-7-5", "day": 7, "cat": "hotel", "time": "20:30", "title": "威海站住宿·汉庭", "desc": "汉庭威海火车站店(推荐 ¥150)", "city": "威海", "name": "汉庭酒店威海火车站店", "lat": 37.419152, "lng": 122.15158, "position": 5}, {"id": "seed-8-1", "day": 8, "cat": "scenic", "time": "07:00", "title": "火炬八街", "desc": "清晨打卡威海小镰仓", "city": "威海", "name": "火炬八街", "lat": 37.522772, "lng": 122.031309, "position": 1}, {"id": "seed-8-2", "day": 8, "cat": "scenic", "time": "08:00", "title": "国际海水浴场(最后玩海)", "desc": "最后玩海，留念拍照", "city": "威海", "name": "国际海水浴场", "lat": 37.529038, "lng": 122.045212, "position": 2}, {"id": "seed-8-3", "day": 8, "cat": "transit", "time": "09:19", "title": "威海站发车", "desc": "9:19 硬卧→次日 5:03 武昌", "city": "威海", "name": "威海站", "lat": 37.426952, "lng": 122.143769, "position": 3}, {"id": "seed-9-1", "day": 9, "cat": "transit", "time": "05:03", "title": "抵达武昌", "desc": "行程结束，平安到家", "city": "武汉", "name": "武昌站", "lat": 30.528671, "lng": 114.317792, "position": 1}];
 const DAY_META = {"1": {"date": "8月1日", "sub": "济南 · 初见泉城", "count": 7}, "2": {"date": "8月2日", "sub": "济南 · 山湖与博物馆", "count": 6}, "3": {"date": "8月3日", "sub": "威海 · 抵岸登岛", "count": 6}, "4": {"date": "8月4日", "sub": "威海 · 海角天涯", "count": 5}, "5": {"date": "8月5日", "sub": "威海→烟台 · 跨城自驾", "count": 5}, "6": {"date": "8月6日", "sub": "烟台 · 蓬莱仙境", "count": 5}, "7": {"date": "8月7日", "sub": "烟台→威海 · 归途夜市", "count": 5}, "8": {"date": "8月8日", "sub": "威海 · 收官启程", "count": 3}, "9": {"date": "8月9日", "sub": "武汉 · 平安到家", "count": 1}};
 const CATS = {"scenic": {"label": "景点", "color": "#0aa3ff", "soft": "#e6f6ff"}, "food": {"label": "美食", "color": "#ff6b6b", "soft": "#ffecec"}, "culture": {"label": "文化", "color": "#7b61ff", "soft": "#f0ebff"}, "shop": {"label": "购物", "color": "#20c997", "soft": "#e7fbf4"}, "transit": {"label": "交通", "color": "#8898aa", "soft": "#eef1f5"}, "hotel": {"label": "住宿", "color": "#f59e0b", "soft": "#fff4dc"}};
-const PINS = {"scenic": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMCIgaGVpZ2h0PSIzMCIgdmlld0JveD0iMCAwIDMwIDMwIj48cGF0aCBkPSJNMTUgMSBDNy44IDEgMiA2LjggMiAxNCBjMCA5IDEzIDE1IDEzIDE1IHMxMy02IDEzLTE1IEMyOCA2LjggMjIuMiAxIDE1IDEgeiIgZmlsbD0iIzBhYTNmZiIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyLjIiLz48Y2lyY2xlIGN4PSIxNSIgY3k9IjE0IiByPSI0LjUiIGZpbGw9IndoaXRlIi8+PC9zdmc+", "food": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMCIgaGVpZ2h0PSIzMCIgdmlld0JveD0iMCAwIDMwIDMwIj48cGF0aCBkPSJNMTUgMSBDNy44IDEgMiA2LjggMiAxNCBjMCA5IDEzIDE1IDEzIDE1IHMxMy02IDEzLTE1IEMyOCA2LjggMjIuMiAxIDE1IDEgeiIgZmlsbD0iI2ZmNmI2YiIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyLjIiLz48Y2lyY2xlIGN4PSIxNSIgY3k9IjE0IiByPSI0LjUiIGZpbGw9IndoaXRlIi8+PC9zdmc+", "culture": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMCIgaGVpZ2h0PSIzMCIgdmlld0JveD0iMCAwIDMwIDMwIj48cGF0aCBkPSJNMTUgMSBDNy44IDEgMiA2LjggMiAxNCBjMCA5IDEzIDE1IDEzIDE1IHMxMy02IDEzLTE1IEMyOCA2LjggMjIuMiAxIDE1IDEgeiIgZmlsbD0iIzdiNjFmZiIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyLjIiLz48Y2lyY2xlIGN4PSIxNSIgY3k9IjE0IiByPSI0LjUiIGZpbGw9IndoaXRlIi8+PC9zdmc+", "shop": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMCIgaGVpZ2h0PSIzMCIgdmlld0JveD0iMCAwIDMwIDMwIj48cGF0aCBkPSJNMTUgMSBDNy44IDEgMiA2LjggMiAxNCBjMCA5IDEzIDE1IDEzIDE1IHMxMy02IDEzLTE1IEMyOCA2LjggMjIuMiAxIDE1IDEgeiIgZmlsbD0iIzIwYzk5NyIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyLjIiLz48Y2lyY2xlIGN4PSIxNSIgY3k9IjE0IiByPSI0LjUiIGZpbGw9IndoaXRlIi8+PC9zdmc+", "transit": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMCIgaGVpZ2h0PSIzMCIgdmlld0JveD0iMCAwIDMwIDMwIj48cGF0aCBkPSJNMTUgMSBDNy44IDEgMiA2LjggMiAxNCBjMCA5IDEzIDE1IDEzIDE1IHMxMy02IDEzLTE1IEMyOCA2LjggMjIuMiAxIDE1IDEgeiIgZmlsbD0iIzg4OThhYSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyLjIiLz48Y2lyY2xlIGN4PSIxNSIgY3k9IjE0IiByPSI0LjUiIGZpbGw9IndoaXRlIi8+PC9zdmc+", "hotel": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMCIgaGVpZ2h0PSIzMCIgdmlld0JveD0iMCAwIDMwIDMwIj48cGF0aCBkPSJNMTUgMSBDNy44IDEgMiA2LjggMiAxNCBjMCA5IDEzIDE1IDEzIDE1IHMxMy02IDEzLTE1IEMyOCA2LjggMjIuMiAxIDE1IDEgeiIgZmlsbD0iI2Y1OWUwYiIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyLjIiLz48Y2lyY2xlIGN4PSIxNSIgY3k9IjE0IiByPSI0LjUiIGZpbGw9IndoaXRlIi8+PC9zdmc+"};
 const BUDGETS = {"交通": 2030, "住宿": 1040, "租车": 937, "吃饭门票": 1500};
 const TOTAL = 5507;
 const HOTELS = {"济南住宿·天桥区": {"addr": "天桥区小清河北路恒大滨河左岸D9公寓1号楼119号商铺", "price": "¥138", "status": "已预订"}, "威海住宿·山大路": {"addr": "环翠区高技术产业开发区山大路15-6号(建设银行旁，山大南门对面)", "price": "¥352/2晚", "status": "已预订"}, "威海住宿·山大路(继续住)": {"addr": "山大路15-6号", "price": "—", "status": "续住"}, "烟台住宿·金海湾": {"addr": "烟台山旁海景(芝罘区)", "price": "约¥400/晚", "status": "推荐·未订"}, "烟台住宿·金海湾(继续住)": {"addr": "烟台山旁海景", "price": "—", "status": "续住"}, "威海站住宿·汉庭": {"addr": "汉庭酒店威海火车站店", "price": "约¥150/晚", "status": "推荐·未订"}};
-const MARKER_STYLES = {"m_scenic": {"src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMCIgaGVpZ2h0PSIzMCIgdmlld0JveD0iMCAwIDMwIDMwIj48cGF0aCBkPSJNMTUgMSBDNy44IDEgMiA2LjggMiAxNCBjMCA5IDEzIDE1IDEzIDE1IHMxMy02IDEzLTE1IEMyOCA2LjggMjIuMiAxIDE1IDEgeiIgZmlsbD0iIzBhYTNmZiIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyLjIiLz48Y2lyY2xlIGN4PSIxNSIgY3k9IjE0IiByPSI0LjUiIGZpbGw9IndoaXRlIi8+PC9zdmc+", "width": 30, "height": 30, "anchor": {"x": 15, "y": 29}}, "m_food": {"src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMCIgaGVpZ2h0PSIzMCIgdmlld0JveD0iMCAwIDMwIDMwIj48cGF0aCBkPSJNMTUgMSBDNy44IDEgMiA2LjggMiAxNCBjMCA5IDEzIDE1IDEzIDE1IHMxMy02IDEzLTE1IEMyOCA2LjggMjIuMiAxIDE1IDEgeiIgZmlsbD0iI2ZmNmI2YiIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyLjIiLz48Y2lyY2xlIGN4PSIxNSIgY3k9IjE0IiByPSI0LjUiIGZpbGw9IndoaXRlIi8+PC9zdmc+", "width": 30, "height": 30, "anchor": {"x": 15, "y": 29}}, "m_culture": {"src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMCIgaGVpZ2h0PSIzMCIgdmlld0JveD0iMCAwIDMwIDMwIj48cGF0aCBkPSJNMTUgMSBDNy44IDEgMiA2LjggMiAxNCBjMCA5IDEzIDE1IDEzIDE1IHMxMy02IDEzLTE1IEMyOCA2LjggMjIuMiAxIDE1IDEgeiIgZmlsbD0iIzdiNjFmZiIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyLjIiLz48Y2lyY2xlIGN4PSIxNSIgY3k9IjE0IiByPSI0LjUiIGZpbGw9IndoaXRlIi8+PC9zdmc+", "width": 30, "height": 30, "anchor": {"x": 15, "y": 29}}, "m_shop": {"src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMCIgaGVpZ2h0PSIzMCIgdmlld0JveD0iMCAwIDMwIDMwIj48cGF0aCBkPSJNMTUgMSBDNy44IDEgMiA2LjggMiAxNCBjMCA5IDEzIDE1IDEzIDE1IHMxMy02IDEzLTE1IEMyOCA2LjggMjIuMiAxIDE1IDEgeiIgZmlsbD0iIzIwYzk5NyIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyLjIiLz48Y2lyY2xlIGN4PSIxNSIgY3k9IjE0IiByPSI0LjUiIGZpbGw9IndoaXRlIi8+PC9zdmc+", "width": 30, "height": 30, "anchor": {"x": 15, "y": 29}}, "m_transit": {"src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMCIgaGVpZ2h0PSIzMCIgdmlld0JveD0iMCAwIDMwIDMwIj48cGF0aCBkPSJNMTUgMSBDNy44IDEgMiA2LjggMiAxNCBjMCA5IDEzIDE1IDEzIDE1IHMxMy02IDEzLTE1IEMyOCA2LjggMjIuMiAxIDE1IDEgeiIgZmlsbD0iIzg4OThhYSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyLjIiLz48Y2lyY2xlIGN4PSIxNSIgY3k9IjE0IiByPSI0LjUiIGZpbGw9IndoaXRlIi8+PC9zdmc+", "width": 30, "height": 30, "anchor": {"x": 15, "y": 29}}, "m_hotel": {"src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMCIgaGVpZ2h0PSIzMCIgdmlld0JveD0iMCAwIDMwIDMwIj48cGF0aCBkPSJNMTUgMSBDNy44IDEgMiA2LjggMiAxNCBjMCA5IDEzIDE1IDEzIDE1IHMxMy02IDEzLTE1IEMyOCA2LjggMjIuMiAxIDE1IDEgeiIgZmlsbD0iI2Y1OWUwYiIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyLjIiLz48Y2lyY2xlIGN4PSIxNSIgY3k9IjE0IiByPSI0LjUiIGZpbGw9IndoaXRlIi8+PC9zdmc+", "width": 30, "height": 30, "anchor": {"x": 15, "y": 29}}};
 const DAYS = Object.keys(DAY_META).map(Number).sort(function(a,b){return a-b});
+let POIS = ItineraryCore.normalizePoints(BASE_POIS);
 
 document.getElementById('bDays').textContent = DAYS.length;
 document.getElementById('bPoi').textContent = POIS.length;
@@ -143,17 +244,39 @@ DAYS.forEach(function(d){
 let map, multiMarker, multiPoly, infoWin;
 let curDay = null;
 
+function markerStyles() {
+  const styles = {};
+  BASE_POIS.forEach(function(p) {
+    const svg = ItineraryCore.buildNumberedPinSvg(p.position, CATS[p.cat].color);
+    styles[p.id] = { src: 'data:image/svg+xml,' + encodeURIComponent(svg),
+      width: 36, height: 42, anchor: { x: 18, y: 41 } };
+  });
+  return styles;
+}
+
+function polylineStyle() {
+  return new TMap.PolylineStyle({
+    width: 7,
+    color: '#ff5a5f',
+    borderWidth: 3,
+    borderColor: '#ffffff',
+    showArrow: true,
+    arrowOptions: { width: 8, height: 5, space: 60 },
+    lineCap: 'round',
+    lineJoin: 'round'
+  });
+}
+
 function initMap(){
   const c0 = POIS[0];
   map = new TMap.Map('map', { center: new TMap.LatLng(c0.lat, c0.lng), zoom: 12 });
-  multiMarker = new TMap.MultiMarker({ map: map, styles: MARKER_STYLES, geometries: [] });
-  // polyline 用内联 style，不依赖 styles 字典（排除 styleId 引用兼容性）
-  multiPoly = new TMap.MultiPolyline({ map: map, geometries: [] });
+  multiMarker = new TMap.MultiMarker({ map: map, styles: markerStyles(), geometries: [] });
+  multiPoly = new TMap.MultiPolyline({ map: map, styles: { route: polylineStyle() }, geometries: [] });
   try { multiPoly.setZIndex(100); } catch(_) {}
   try { multiMarker.setZIndex(200); } catch(_) {}
   multiMarker.on('click', function(e){
     const p = e.geometry && e.geometry.properties;
-    if (p) flyTo(p.day, p.num);
+    if (p) flyTo(p.day, p.position);
   });
   window.addEventListener('resize', function(){ try{ map.invalidateSize && map.invalidateSize(); }catch(_){} });
   return true;
@@ -170,7 +293,7 @@ function renderTimeline(d, list){
     const c = CATS[p.cat];
     const isHotel = p.cat === 'hotel';
     const cardCls = isHotel ? 'card hotel-card' : 'card';
-    html += '<div class="'+cardCls+'" data-id="'+p.num+'" style="--c:'+c.color+'">'
+    html += '<div class="'+cardCls+'" data-id="'+p.id+'" style="--c:'+c.color+'">'
       + '<div class="rail"></div>'
       + '<div class="time">'+p.time+'</div>'
       + '<div class="body">'
@@ -186,13 +309,14 @@ function renderTimeline(d, list){
           + '</div>';
       }
     }
-    html += '</div><div class="num">'+p.num+'</div></div>';
+    html += '</div><div class="num">'+p.position+'</div></div>';
   });
   t.innerHTML = html;
   t.scrollTop = 0;
   Array.from(t.querySelectorAll('.card')).forEach(function(el){
     el.addEventListener('click', function(){
-      flyTo(d, parseInt(el.dataset.id, 10));
+      const point = POIS.find(function(p){ return p.id === el.dataset.id; });
+      if (point) flyTo(d, point.position);
     });
   });
 }
@@ -203,8 +327,8 @@ function renderMap(d, list){
 
   const geoms = list.map(function(p){
     return {
-      id: 'm' + p.day + '_' + p.num,
-      styleId: 'm_' + p.cat,
+      id: p.id,
+      styleId: p.id,
       position: new TMap.LatLng(p.lat, p.lng),
       properties: p
     };
@@ -215,18 +339,22 @@ function renderMap(d, list){
   try {
     if (!multiMarker || !multiPoly) throw new Error('覆盖物未初始化');
     multiMarker.setGeometries(geoms);
-    multiPoly.setGeometries([{
+    multiPoly.setGeometries(list.length >= 2 ? [{
       id: 'route_' + d,
       paths: polyPaths,
-      // 内联 style（不引用 styles 字典），最稳
-      style: { color: '#ff5a5f', width: 7, borderWidth: 3, borderColor: '#ffffff', lineCap: 'round', lineJoin: 'round' }
-    }]);
+      styleId: 'route'
+    }] : []);
   } catch(e){
     document.getElementById('mapTitle').innerHTML += ' · ❌渲染失败: ' + e.message;
     return;
   }
 
   if (list.length === 0) return;
+  if (list.length === 1) {
+    map.setCenter(new TMap.LatLng(list[0].lat, list[0].lng));
+    map.setZoom(15);
+    return;
+  }
 
   // 用 fitBounds 强制 fit 全部 POI（无论单城/跨城都正确）
   try {
@@ -256,17 +384,18 @@ function selectDay(d){
   Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(t){
     t.classList.toggle('active', parseInt(t.dataset.day,10) === d);
   });
-  const list = POIS.filter(function(p){ return p.day === d; });
+  const list = POIS.filter(function(p){ return p.day === d; })
+    .sort(function(a,b){ return a.position - b.position; });
   renderTimeline(d, list);
   renderMap(d, list);
 }
 
 function flyTo(d, num){
   if (curDay !== d) selectDay(d);
-  const p = POIS.find(function(x){ return x.day === d && x.num === num; });
+  const p = POIS.find(function(x){ return x.day === d && x.position === num; });
   if (!p) return;
   Array.prototype.forEach.call(document.querySelectorAll('.card'), function(el){
-    el.classList.toggle('active', parseInt(el.dataset.id,10) === num);
+    el.classList.toggle('active', el.dataset.id === p.id);
   });
   map.setCenter(new TMap.LatLng(p.lat, p.lng));
   map.setZoom(15);

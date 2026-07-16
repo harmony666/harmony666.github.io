@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 # 读取 coords.json（完整行程含酒店）→ 生成内联 HTML
-import json, base64
+import json
+from pathlib import Path
+
+ROOT = Path(__file__).parent
 
 KEY = "B6VBZ-V75KG-HBEQP-IRLIB-ANBLZ-W6BD5"
-data = json.load(open("coords.json", encoding="utf-8"))
+data = json.loads((ROOT / "coords.json").read_text(encoding="utf-8"))
+core_js = (ROOT / "src" / "itinerary-core.js").read_text(encoding="utf-8")
 
 budgets = {"交通": 1117+336+577, "住宿": 138+352+400+150, "租车": 937, "吃饭门票": 1500}
 total = sum(budgets.values())
@@ -37,7 +41,8 @@ for p in data:
     groups.setdefault(p["day"], []).append(p)
 for d, lst in groups.items():
     for i, p in enumerate(lst, 1):
-        p["num"] = i
+        p["position"] = i
+        p["id"] = f"seed-{d}-{i}"
 
 cats = {
     "scenic":  {"label": "景点", "color": "#0aa3ff", "soft": "#e6f6ff"},
@@ -48,16 +53,8 @@ cats = {
     "hotel":   {"label": "住宿", "color": "#f59e0b", "soft": "#fff4dc"},
 }
 
-def pin(color):
-    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30">'
-           f'<path d="M15 1 C7.8 1 2 6.8 2 14 c0 9 13 15 13 15 s13-6 13-15 C28 6.8 22.2 1 15 1 z" fill="{color}" stroke="white" stroke-width="2.2"/>'
-           f'<circle cx="15" cy="14" r="4.5" fill="white"/></svg>')
-    return "data:image/svg+xml;base64," + base64.b64encode(svg.encode()).decode()
-
-pin_uris = {k: pin(v["color"]) for k, v in cats.items()}
-
 pois_js = json.dumps(
-    [{k: p.get(k) for k in ("day","cat","time","title","desc","city","name","lat","lng","num")} for p in data],
+    [{k: p.get(k) for k in ("id", "day", "cat", "time", "title", "desc", "city", "name", "lat", "lng", "position")} for p in data],
     ensure_ascii=False,
 )
 day_meta_js = json.dumps(
@@ -65,13 +62,7 @@ day_meta_js = json.dumps(
     ensure_ascii=False,
 )
 cats_js = json.dumps(cats, ensure_ascii=False)
-pin_uris_js = json.dumps(pin_uris, ensure_ascii=False)
 budgets_js = json.dumps(budgets, ensure_ascii=False)
-styles_js = json.dumps(
-    {f"m_{k}": {"src": v, "width": 30, "height": 30, "anchor": {"x": 15, "y": 29}}
-     for k, v in pin_uris.items()},
-    ensure_ascii=False,
-)
 
 HTML = r"""<!DOCTYPE html>
 <html lang="zh-CN">
@@ -79,7 +70,7 @@ HTML = r"""<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>武汉 → 山东 9日旅行计划</title>
-<script src="https://map.qq.com/api/gljs?v=1&key=__KEY__"></script>
+<script src="https://map.qq.com/api/gljs?v=1&key=__KEY__&libraries=service"></script>
 <style>
 :root{
   --ink:#0a2540; --sub:#425466; --muted:#8898aa; --line:#e6eaf2;
@@ -184,17 +175,17 @@ body{
     <div class="map-legend" id="legend"></div>
   </aside>
 </main>
+<script>__CORE_JS__</script>
 <script>
 const KEY = "__KEY__";
-const POIS = __POIS__;
+const BASE_POIS = __POIS__;
 const DAY_META = __DAYMETA__;
 const CATS = __CATS__;
-const PINS = __PINS__;
 const BUDGETS = __BUDGETS__;
 const TOTAL = __TOTAL__;
 const HOTELS = __HOTELS__;
-const MARKER_STYLES = __STYLES__;
 const DAYS = Object.keys(DAY_META).map(Number).sort(function(a,b){return a-b});
+let POIS = ItineraryCore.normalizePoints(BASE_POIS);
 
 document.getElementById('bDays').textContent = DAYS.length;
 document.getElementById('bPoi').textContent = POIS.length;
@@ -218,17 +209,39 @@ DAYS.forEach(function(d){
 let map, multiMarker, multiPoly, infoWin;
 let curDay = null;
 
+function markerStyles() {
+  const styles = {};
+  BASE_POIS.forEach(function(p) {
+    const svg = ItineraryCore.buildNumberedPinSvg(p.position, CATS[p.cat].color);
+    styles[p.id] = { src: 'data:image/svg+xml,' + encodeURIComponent(svg),
+      width: 36, height: 42, anchor: { x: 18, y: 41 } };
+  });
+  return styles;
+}
+
+function polylineStyle() {
+  return new TMap.PolylineStyle({
+    width: 7,
+    color: '#ff5a5f',
+    borderWidth: 3,
+    borderColor: '#ffffff',
+    showArrow: true,
+    arrowOptions: { width: 8, height: 5, space: 60 },
+    lineCap: 'round',
+    lineJoin: 'round'
+  });
+}
+
 function initMap(){
   const c0 = POIS[0];
   map = new TMap.Map('map', { center: new TMap.LatLng(c0.lat, c0.lng), zoom: 12 });
-  multiMarker = new TMap.MultiMarker({ map: map, styles: MARKER_STYLES, geometries: [] });
-  // polyline 用内联 style，不依赖 styles 字典（排除 styleId 引用兼容性）
-  multiPoly = new TMap.MultiPolyline({ map: map, geometries: [] });
+  multiMarker = new TMap.MultiMarker({ map: map, styles: markerStyles(), geometries: [] });
+  multiPoly = new TMap.MultiPolyline({ map: map, styles: { route: polylineStyle() }, geometries: [] });
   try { multiPoly.setZIndex(100); } catch(_) {}
   try { multiMarker.setZIndex(200); } catch(_) {}
   multiMarker.on('click', function(e){
     const p = e.geometry && e.geometry.properties;
-    if (p) flyTo(p.day, p.num);
+    if (p) flyTo(p.day, p.position);
   });
   window.addEventListener('resize', function(){ try{ map.invalidateSize && map.invalidateSize(); }catch(_){} });
   return true;
@@ -245,7 +258,7 @@ function renderTimeline(d, list){
     const c = CATS[p.cat];
     const isHotel = p.cat === 'hotel';
     const cardCls = isHotel ? 'card hotel-card' : 'card';
-    html += '<div class="'+cardCls+'" data-id="'+p.num+'" style="--c:'+c.color+'">'
+    html += '<div class="'+cardCls+'" data-id="'+p.id+'" style="--c:'+c.color+'">'
       + '<div class="rail"></div>'
       + '<div class="time">'+p.time+'</div>'
       + '<div class="body">'
@@ -261,13 +274,14 @@ function renderTimeline(d, list){
           + '</div>';
       }
     }
-    html += '</div><div class="num">'+p.num+'</div></div>';
+    html += '</div><div class="num">'+p.position+'</div></div>';
   });
   t.innerHTML = html;
   t.scrollTop = 0;
   Array.from(t.querySelectorAll('.card')).forEach(function(el){
     el.addEventListener('click', function(){
-      flyTo(d, parseInt(el.dataset.id, 10));
+      const point = POIS.find(function(p){ return p.id === el.dataset.id; });
+      if (point) flyTo(d, point.position);
     });
   });
 }
@@ -278,8 +292,8 @@ function renderMap(d, list){
 
   const geoms = list.map(function(p){
     return {
-      id: 'm' + p.day + '_' + p.num,
-      styleId: 'm_' + p.cat,
+      id: p.id,
+      styleId: p.id,
       position: new TMap.LatLng(p.lat, p.lng),
       properties: p
     };
@@ -290,18 +304,22 @@ function renderMap(d, list){
   try {
     if (!multiMarker || !multiPoly) throw new Error('覆盖物未初始化');
     multiMarker.setGeometries(geoms);
-    multiPoly.setGeometries([{
+    multiPoly.setGeometries(list.length >= 2 ? [{
       id: 'route_' + d,
       paths: polyPaths,
-      // 内联 style（不引用 styles 字典），最稳
-      style: { color: '#ff5a5f', width: 7, borderWidth: 3, borderColor: '#ffffff', lineCap: 'round', lineJoin: 'round' }
-    }]);
+      styleId: 'route'
+    }] : []);
   } catch(e){
     document.getElementById('mapTitle').innerHTML += ' · ❌渲染失败: ' + e.message;
     return;
   }
 
   if (list.length === 0) return;
+  if (list.length === 1) {
+    map.setCenter(new TMap.LatLng(list[0].lat, list[0].lng));
+    map.setZoom(15);
+    return;
+  }
 
   // 用 fitBounds 强制 fit 全部 POI（无论单城/跨城都正确）
   try {
@@ -331,17 +349,18 @@ function selectDay(d){
   Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(t){
     t.classList.toggle('active', parseInt(t.dataset.day,10) === d);
   });
-  const list = POIS.filter(function(p){ return p.day === d; });
+  const list = POIS.filter(function(p){ return p.day === d; })
+    .sort(function(a,b){ return a.position - b.position; });
   renderTimeline(d, list);
   renderMap(d, list);
 }
 
 function flyTo(d, num){
   if (curDay !== d) selectDay(d);
-  const p = POIS.find(function(x){ return x.day === d && x.num === num; });
+  const p = POIS.find(function(x){ return x.day === d && x.position === num; });
   if (!p) return;
   Array.prototype.forEach.call(document.querySelectorAll('.card'), function(el){
-    el.classList.toggle('active', parseInt(el.dataset.id,10) === num);
+    el.classList.toggle('active', el.dataset.id === p.id);
   });
   map.setCenter(new TMap.LatLng(p.lat, p.lng));
   map.setZoom(15);
@@ -387,15 +406,13 @@ if (typeof TMap !== 'undefined') {
 
 HTML = (HTML
     .replace("__KEY__", KEY)
+    .replace("__CORE_JS__", core_js)
     .replace("__POIS__", pois_js)
     .replace("__DAYMETA__", day_meta_js)
     .replace("__CATS__", cats_js)
-    .replace("__PINS__", pin_uris_js)
     .replace("__BUDGETS__", budgets_js)
     .replace("__TOTAL__", str(total))
-    .replace("__STYLES__", styles_js)
     .replace("__HOTELS__", hotels_js))
 
-with open("itinerary.html", "w", encoding="utf-8") as f:
-    f.write(HTML)
+(ROOT / "itinerary.html").write_text(HTML, encoding="utf-8")
 print("OK v3 itinerary.html  total=¥%d  pois=%d days=%d" % (total, len(data), len(days)))
