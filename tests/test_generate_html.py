@@ -133,6 +133,79 @@ class GeneratedHtmlTest(unittest.TestCase):
         self.assertLess(export_fn.index("finally"),
                         export_fn.index("URL.revokeObjectURL"))
 
+    def test_point_editor_contains_required_fields_and_controls(self):
+        self.assertIn('id="pointEditor"', self.html)
+        for field in ("pointDay", "pointTime", "pointTitle", "pointCity",
+                      "pointCategory", "pointLat", "pointLng"):
+            self.assertRegex(
+                self.html,
+                r'id="' + field + r'"[^>]*\brequired\b',
+            )
+        self.assertIn('id="pointDescription"', self.html)
+        self.assertIn('id="placeKeyword"', self.html)
+        self.assertIn('id="placeResults"', self.html)
+        self.assertIn('id="placeSearchBtn"', self.html)
+        self.assertIn('id="mapPickBtn"', self.html)
+
+    def test_point_editor_implements_search_and_single_use_map_pick(self):
+        self.assertIn("function openPointEditor()", self.html)
+        self.assertIn("function closePointEditor()", self.html)
+        self.assertIn("function beginMapPick()", self.html)
+        self.assertIn("function searchPlaces(keyword, city)", self.html)
+        self.assertIn("new TMap.service.Suggestion({ pageSize: 8 })", self.html)
+        self.assertIn("getSuggestions({ keyword: keyword, region: city })", self.html)
+        self.assertIn("map.on('click', mapPickHandler)", self.html)
+        self.assertIn("map.off('click', mapPickHandler)", self.html)
+
+    def test_submit_point_uses_safe_id_and_atomic_candidate_save(self):
+        self.assertIn("function submitPoint(formData)", self.html)
+        submit_fn = self.html.split("function submitPoint(formData)", 1)[1].split(
+            "function bindTimelineDrag", 1
+        )[0]
+        self.assertIn("crypto.randomUUID", submit_fn)
+        self.assertIn("Date.now()", submit_fn)
+        self.assertIn("ItineraryCore.insertPointByTime", submit_fn)
+        self.assertIn("const previousPoints = POIS", submit_fn)
+        self.assertIn("if (!saveState(candidate))", submit_fn)
+        self.assertLess(
+            submit_fn.index("if (!saveState(candidate))"),
+            submit_fn.index("POIS = candidate"),
+        )
+        self.assertIn("source: pointSource", submit_fn)
+        self.assertIn("const latText =", submit_fn)
+        self.assertIn("!latText || !lngText", submit_fn)
+
+    def test_timeline_cards_support_drag_reordering_with_rollback(self):
+        self.assertIn('draggable="true"', self.html)
+        for event_name in ("dragstart", "dragover", "drop", "dragend"):
+            self.assertIn("addEventListener('" + event_name + "'", self.html)
+        drag_fn = self.html.split("function bindTimelineDrag", 1)[1].split(
+            "function renderMap", 1
+        )[0]
+        self.assertIn("ItineraryCore.reorderDay", drag_fn)
+        self.assertIn("const previousPoints = POIS", drag_fn)
+        self.assertIn("if (!saveState(candidate))", drag_fn)
+        self.assertIn("POIS = previousPoints", drag_fn)
+        self.assertIn("selectDay(day)", drag_fn)
+
+    def test_untrusted_content_is_escaped_in_timeline_info_and_search(self):
+        self.assertIn("function escapeHtml(value)", self.html)
+        timeline_fn = self.html.split("function renderTimeline(d, list){", 1)[1].split(
+            "function renderMap", 1
+        )[0]
+        fly_fn = self.html.split("function flyTo(d, num){", 1)[1].split(
+            "function boot()", 1
+        )[0]
+        search_fn = self.html.split("function searchPlaces(keyword, city)", 1)[1].split(
+            "function submitPoint(formData)", 1
+        )[0]
+        for expression in ("escapeHtml(p.title)", "escapeHtml(p.desc)"):
+            self.assertIn(expression, timeline_fn)
+            self.assertIn(expression, fly_fn)
+        self.assertIn("escapeHtml(h.addr)", timeline_fn)
+        self.assertIn("escapeHtml(h.addr)", fly_fn)
+        self.assertIn("textContent", search_fn)
+
 
 if __name__ == "__main__":
     unittest.main()

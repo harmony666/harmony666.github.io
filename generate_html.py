@@ -143,11 +143,30 @@ body{
 .card.hotel-card .hotel-meta{font-size:12px; color:var(--sub); margin-top:6px; display:flex; gap:10px; flex-wrap:wrap}
 .card.hotel-card .hotel-meta b{color:var(--ink)}
 .card.hotel-card .status{font-size:11px; padding:1px 7px; border-radius:6px; background:var(--c); color:#fff; font-weight:700}
+.card.dragging{opacity:.45}
+.card.drag-before{border-top:3px solid #635bff}
+.card.drag-after{border-bottom:3px solid #635bff}
 .inf{background:#fff;border-radius:14px;padding:12px 14px;min-width:210px;max-width:280px;box-shadow:var(--shadow);
   border-left:5px solid var(--c); font-family:inherit}
 .inf .it{font-size:15px;font-weight:800;color:var(--ink);display:flex;align-items:center;gap:8px}
 .inf .im{font-size:12px;color:var(--muted);margin-top:6px}
 .inf .id{font-size:12.5px;color:var(--sub);margin-top:7px;line-height:1.55}
+.editor-overlay{position:fixed;inset:0;z-index:1000;background:rgba(10,37,64,.42);display:none;justify-content:flex-end}
+.editor-overlay.open{display:flex}
+.point-editor{width:min(520px,100%);height:100%;overflow-y:auto;background:#fff;padding:24px;box-shadow:-10px 0 35px rgba(10,37,64,.22)}
+.point-editor h2{margin:0 0 18px}
+.editor-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.editor-field{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--sub)}
+.editor-field.wide{grid-column:1/-1}
+.editor-field input,.editor-field select,.editor-field textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:9px;font:inherit;color:var(--ink)}
+.editor-actions,.search-row{display:flex;gap:8px;margin-top:14px}
+.editor-actions{justify-content:flex-end;flex-wrap:wrap}
+.editor-actions button,.search-row button{border:1px solid var(--line);border-radius:8px;padding:9px 13px;background:#fff;cursor:pointer}
+.editor-actions .primary{background:#635bff;color:#fff;border-color:#635bff}
+.place-results{margin-top:10px;display:grid;gap:7px}
+.place-result{border:1px solid var(--line);border-radius:8px;background:#fff;padding:9px;text-align:left;cursor:pointer}
+.place-result small{display:block;color:var(--muted);margin-top:3px}
+.editor-message{min-height:20px;color:#c33;font-size:12px;margin-top:10px}
 @media (max-width:900px){
   .layout{grid-template-columns:1fr; grid-template-rows:50% 50%}
   .map-wrap{border-left:none; border-top:1px solid var(--line)}
@@ -188,6 +207,56 @@ body{
     <div class="map-legend" id="legend"></div>
   </aside>
 </main>
+<div class="editor-overlay" id="pointEditor" role="dialog" aria-modal="true" aria-labelledby="pointEditorTitle">
+  <section class="point-editor">
+    <h2 id="pointEditorTitle">添加行程点</h2>
+    <form id="pointForm">
+      <div class="editor-grid">
+        <label class="editor-field">DAY
+          <input id="pointDay" name="day" type="number" min="1" max="9" required>
+        </label>
+        <label class="editor-field">时间
+          <input id="pointTime" name="time" type="time" required>
+        </label>
+        <label class="editor-field wide">标题
+          <input id="pointTitle" name="title" type="text" required>
+        </label>
+        <label class="editor-field wide">描述
+          <textarea id="pointDescription" name="description" rows="3"></textarea>
+        </label>
+        <label class="editor-field">城市
+          <input id="pointCity" name="city" type="text" required>
+        </label>
+        <label class="editor-field">类别
+          <select id="pointCategory" name="category" required>
+            <option value="scenic">景点</option><option value="food">美食</option>
+            <option value="culture">文化</option><option value="shop">购物</option>
+            <option value="transit">交通</option><option value="hotel">住宿</option>
+          </select>
+        </label>
+        <label class="editor-field">纬度
+          <input id="pointLat" name="lat" type="number" step="any" required>
+        </label>
+        <label class="editor-field">经度
+          <input id="pointLng" name="lng" type="number" step="any" required>
+        </label>
+        <label class="editor-field wide">搜索地点
+          <div class="search-row">
+            <input id="placeKeyword" type="search" autocomplete="off">
+            <button id="placeSearchBtn" type="button">搜索</button>
+          </div>
+        </label>
+      </div>
+      <div class="place-results" id="placeResults"></div>
+      <div class="editor-message" id="pointEditorMessage" role="status"></div>
+      <div class="editor-actions">
+        <button id="mapPickBtn" type="button">地图选点</button>
+        <button id="pointCancelBtn" type="button">取消</button>
+        <button class="primary" type="submit">保存</button>
+      </div>
+    </form>
+  </section>
+</div>
 <script>__CORE_JS__</script>
 <script>
 const KEY = "__KEY__";
@@ -199,6 +268,12 @@ const TOTAL = __TOTAL__;
 const HOTELS = __HOTELS__;
 const DAYS = Object.keys(DAY_META).map(Number).sort(function(a,b){return a-b});
 const STORAGE_KEY = 'itinerary-editor-state-v1';
+
+function escapeHtml(value) {
+  return String(value == null ? '' : value).replace(/[&<>"']/g, function(ch) {
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
+  });
+}
 
 function setSaveStatus(message, isError) {
   const el = document.getElementById('saveStatus');
@@ -316,9 +391,7 @@ let POIS = loadState();
 document.getElementById('bDays').textContent = DAYS.length;
 document.getElementById('bPoi').textContent = POIS.length;
 document.getElementById('bCost').textContent = '¥' + Number(TOTAL).toLocaleString();
-document.getElementById('addPointBtn').addEventListener('click', function(){
-  setSaveStatus('编辑功能将在后续版本提供', false);
-});
+document.getElementById('addPointBtn').addEventListener('click', openPointEditor);
 document.getElementById('exportBtn').addEventListener('click', exportJson);
 document.getElementById('importBtn').addEventListener('click', function(){
   document.getElementById('importInput').click();
@@ -347,6 +420,232 @@ DAYS.forEach(function(d){
 
 let map, multiMarker, multiPoly, infoWin;
 let curDay = null;
+let mapPickHandler = null;
+let pointSource = 'map_click';
+
+function setEditorMessage(message) {
+  document.getElementById('pointEditorMessage').textContent = message || '';
+}
+
+function removeMapPickHandler() {
+  if (mapPickHandler && map && typeof map.off === 'function') {
+    map.off('click', mapPickHandler);
+  }
+  mapPickHandler = null;
+}
+
+function openPointEditor() {
+  const form = document.getElementById('pointForm');
+  form.reset();
+  const day = curDay || DAYS[0];
+  const first = POIS.filter(function(p){ return p.day === day; })
+    .sort(function(a,b){ return a.position - b.position; })[0];
+  document.getElementById('pointDay').value = day;
+  document.getElementById('pointCity').value = first ? first.city : '';
+  document.getElementById('placeResults').replaceChildren();
+  setEditorMessage('');
+  pointSource = 'map_click';
+  document.getElementById('pointEditor').classList.add('open');
+  document.getElementById('pointTime').focus();
+}
+
+function closePointEditor() {
+  removeMapPickHandler();
+  document.getElementById('pointEditor').classList.remove('open');
+  setEditorMessage('');
+}
+
+function beginMapPick() {
+  removeMapPickHandler();
+  if (!map || typeof map.on !== 'function' || typeof map.off !== 'function') {
+    setEditorMessage('地图不可用，请手动输入经纬度');
+    return;
+  }
+  mapPickHandler = function(e) {
+    const location = e && (e.latLng || e.position);
+    if (!location) {
+      setEditorMessage('未能取得地图坐标，请重试');
+      return;
+    }
+    const lat = typeof location.getLat === 'function' ? location.getLat() : location.lat;
+    const lng = typeof location.getLng === 'function' ? location.getLng() : location.lng;
+    document.getElementById('pointLat').value = lat;
+    document.getElementById('pointLng').value = lng;
+    pointSource = 'map_click';
+    map.off('click', mapPickHandler);
+    mapPickHandler = null;
+    setEditorMessage('已选择地图坐标');
+  };
+  map.on('click', mapPickHandler);
+  setEditorMessage('请在地图上点击位置');
+}
+
+async function searchPlaces(keyword, city) {
+  const results = document.getElementById('placeResults');
+  results.replaceChildren();
+  keyword = String(keyword || '').trim();
+  city = String(city || '').trim();
+  if (!keyword) {
+    setEditorMessage('请输入搜索关键词');
+    return;
+  }
+  if (typeof TMap === 'undefined' || !TMap.service || !TMap.service.Suggestion) {
+    setEditorMessage('地点搜索暂不可用');
+    return;
+  }
+  setEditorMessage('正在搜索…');
+  try {
+    const suggestion = new TMap.service.Suggestion({ pageSize: 8 });
+    const response = await suggestion.getSuggestions({ keyword: keyword, region: city });
+    const items = (response && response.data || []).slice(0, 8);
+    if (!items.length) {
+      setEditorMessage('未找到地点，请更换关键词');
+      return;
+    }
+    items.forEach(function(item) {
+      const location = item.location || item.latLng || {};
+      const lat = typeof location.getLat === 'function' ? location.getLat() : location.lat;
+      const lng = typeof location.getLng === 'function' ? location.getLng() : location.lng;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'place-result';
+      const title = document.createElement('strong');
+      title.textContent = item.title || item.name || '';
+      const address = document.createElement('small');
+      address.textContent = item.address || '';
+      button.append(title, address);
+      button.addEventListener('click', function() {
+        document.getElementById('pointTitle').value = item.title || item.name || '';
+        document.getElementById('pointCity').value = item.city || item.region || city;
+        document.getElementById('pointLat').value = lat;
+        document.getElementById('pointLng').value = lng;
+        pointSource = 'place_search';
+        if (map && Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))) {
+          map.setCenter(new TMap.LatLng(Number(lat), Number(lng)));
+          map.setZoom(15);
+        }
+        setEditorMessage('已选择搜索结果');
+      });
+      results.appendChild(button);
+    });
+    setEditorMessage('');
+  } catch (e) {
+    setEditorMessage('搜索失败，请稍后重试');
+  }
+}
+
+function submitPoint(formData) {
+  const day = Number(formData.get('day'));
+  const time = String(formData.get('time') || '');
+  const title = String(formData.get('title') || '').trim();
+  const desc = String(formData.get('description') || '').trim();
+  const city = String(formData.get('city') || '').trim();
+  const cat = String(formData.get('category') || '');
+  const latText = String(formData.get('lat') || '').trim();
+  const lngText = String(formData.get('lng') || '').trim();
+  const lat = Number(latText);
+  const lng = Number(lngText);
+  if (!DAYS.includes(day) || !/^\d{2}:\d{2}$/.test(time) || !title || !city
+      || !Object.prototype.hasOwnProperty.call(CATS, cat)
+      || !latText || !lngText || !Number.isFinite(lat) || !Number.isFinite(lng)
+      || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    setEditorMessage('请完整填写有效的必填信息');
+    return false;
+  }
+  const id = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+    ? crypto.randomUUID()
+    : 'point-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+  const point = {
+    id: id, day: day, cat: cat, time: time, title: title, desc: desc,
+    city: city, name: title, lat: lat, lng: lng, source: pointSource
+  };
+  const previousPoints = POIS;
+  let candidate;
+  try {
+    candidate = ItineraryCore.insertPointByTime(previousPoints, point);
+    if (!saveState(candidate)) {
+      POIS = previousPoints;
+      setEditorMessage('保存失败，新增点未提交，请重试或导出 JSON');
+      return false;
+    }
+  } catch (e) {
+    POIS = previousPoints;
+    setEditorMessage('新增失败：' + (e && e.message || e));
+    return false;
+  }
+  POIS = candidate;
+  document.getElementById('bPoi').textContent = POIS.length;
+  closePointEditor();
+  selectDay(day);
+  return true;
+}
+
+function bindTimelineDrag(timeline, day) {
+  let draggingCard = null;
+  const cards = Array.from(timeline.querySelectorAll('.card'));
+  function clearFeedback() {
+    cards.forEach(function(card) {
+      card.classList.remove('dragging', 'drag-before', 'drag-after');
+    });
+  }
+  cards.forEach(function(card) {
+    card.addEventListener('dragstart', function(e) {
+      draggingCard = card;
+      card.classList.add('dragging');
+      if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', card.dataset.id);
+      }
+    });
+    card.addEventListener('dragover', function(e) {
+      if (!draggingCard || draggingCard === card) return;
+      e.preventDefault();
+      cards.forEach(function(item){ item.classList.remove('drag-before', 'drag-after'); });
+      const before = e.clientY < card.getBoundingClientRect().top + card.offsetHeight / 2;
+      card.classList.add(before ? 'drag-before' : 'drag-after');
+      timeline.insertBefore(draggingCard, before ? card : card.nextSibling);
+    });
+    card.addEventListener('drop', function(e) {
+      if (!draggingCard) return;
+      e.preventDefault();
+      const previousPoints = POIS;
+      try {
+        const orderedIds = Array.from(timeline.querySelectorAll('.card')).map(function(item) {
+          return item.dataset.id;
+        });
+        const candidate = ItineraryCore.reorderDay(previousPoints, day, orderedIds);
+        if (!saveState(candidate)) {
+          POIS = previousPoints;
+          selectDay(day);
+          return;
+        }
+        POIS = candidate;
+        selectDay(day);
+      } catch (error) {
+        POIS = previousPoints;
+        setSaveStatus('排序失败，已恢复原顺序', true);
+        selectDay(day);
+      }
+    });
+    card.addEventListener('dragend', function() {
+      draggingCard = null;
+      clearFeedback();
+    });
+  });
+}
+
+document.getElementById('pointCancelBtn').addEventListener('click', closePointEditor);
+document.getElementById('mapPickBtn').addEventListener('click', beginMapPick);
+document.getElementById('placeSearchBtn').addEventListener('click', function() {
+  searchPlaces(
+    document.getElementById('placeKeyword').value,
+    document.getElementById('pointCity').value
+  );
+});
+document.getElementById('pointForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  submitPoint(new FormData(e.currentTarget));
+});
 
 function markerStyles(points) {
   const styles = {};
@@ -399,19 +698,19 @@ function renderTimeline(d, list){
     const c = CATS[p.cat];
     const isHotel = p.cat === 'hotel';
     const cardCls = isHotel ? 'card hotel-card' : 'card';
-    html += '<div class="'+cardCls+'" data-id="'+p.id+'" style="--c:'+c.color+'">'
+    html += '<div class="'+cardCls+'" draggable="true" data-id="'+escapeHtml(p.id)+'" style="--c:'+c.color+'">'
       + '<div class="rail"></div>'
-      + '<div class="time">'+p.time+'</div>'
+      + '<div class="time">'+escapeHtml(p.time)+'</div>'
       + '<div class="body">'
-      +   '<div class="tt">'+p.title+'<span class="tag">'+c.label+'</span></div>'
-      +   '<div class="ds">'+p.desc+'</div>';
+      +   '<div class="tt">'+escapeHtml(p.title)+'<span class="tag">'+c.label+'</span></div>'
+      +   '<div class="ds">'+escapeHtml(p.desc)+'</div>';
     if (isHotel){
       const h = HOTELS[p.title];
       if (h){
         html += '<div class="hotel-meta">'
-          + '<span>📍 <b>'+h.addr+'</b></span>'
-          + '<span>💰 <b>'+h.price+'</b></span>'
-          + '<span class="status">'+h.status+'</span>'
+          + '<span>📍 <b>'+escapeHtml(h.addr)+'</b></span>'
+          + '<span>💰 <b>'+escapeHtml(h.price)+'</b></span>'
+          + '<span class="status">'+escapeHtml(h.status)+'</span>'
           + '</div>';
       }
     }
@@ -425,6 +724,7 @@ function renderTimeline(d, list){
       if (point) flyTo(d, point.position);
     });
   });
+  bindTimelineDrag(t, d);
 }
 
 function renderMap(d, list){
@@ -510,13 +810,14 @@ function flyTo(d, num){
   let extra = '';
   if (p.cat === 'hotel'){
     const h = HOTELS[p.title];
-    if (h) extra = '<div class="id">📍 '+h.addr+'<br>💰 '+h.price+' · '+h.status+'</div>';
+    if (h) extra = '<div class="id">📍 '+escapeHtml(h.addr)+'<br>💰 '
+      +escapeHtml(h.price)+' · '+escapeHtml(h.status)+'</div>';
   } else {
-    extra = '<div class="id">'+p.desc+'</div>';
+    extra = '<div class="id">'+escapeHtml(p.desc)+'</div>';
   }
   const html = '<div class="inf" style="--c:'+c.color+'">'
-    + '<div class="it">'+p.title+'<span class="tag" style="background:'+c.color+'">'+c.label+'</span></div>'
-    + '<div class="im">'+DAY_META[d].date+' · '+p.time+' · '+p.city+'</div>'
+    + '<div class="it">'+escapeHtml(p.title)+'<span class="tag" style="background:'+c.color+'">'+c.label+'</span></div>'
+    + '<div class="im">'+DAY_META[d].date+' · '+escapeHtml(p.time)+' · '+escapeHtml(p.city)+'</div>'
     + extra + '</div>';
   if (infoWin) infoWin.close();
   infoWin = new TMap.InfoWindow({
