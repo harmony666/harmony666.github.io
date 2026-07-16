@@ -213,8 +213,10 @@ function markerStyles() {
   const styles = {};
   BASE_POIS.forEach(function(p) {
     const svg = ItineraryCore.buildNumberedPinSvg(p.position, CATS[p.cat].color);
-    styles[p.id] = { src: 'data:image/svg+xml,' + encodeURIComponent(svg),
-      width: 36, height: 42, anchor: { x: 18, y: 41 } };
+    styles[p.id] = new TMap.MarkerStyle({
+      src: 'data:image/svg+xml,' + encodeURIComponent(svg),
+      width: 36, height: 42, anchor: { x: 18, y: 41 }
+    });
   });
   return styles;
 }
@@ -314,6 +316,7 @@ function renderMap(d, list){
     return;
   }
 
+  if (infoWin) { infoWin.close(); infoWin = null; }
   if (list.length === 0) return;
   if (list.length === 1) {
     map.setCenter(new TMap.LatLng(list[0].lat, list[0].lng));
@@ -341,7 +344,6 @@ function renderMap(d, list){
     map.setZoom(zoom);
   }
 
-  if (infoWin) { infoWin.close(); infoWin = null; }
 }
 
 function selectDay(d){
