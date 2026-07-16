@@ -551,7 +551,8 @@ async function searchPlaces(keyword, city) {
       button.append(title, address);
       button.addEventListener('click', function() {
         document.getElementById('pointTitle').value = item.title || item.name || '';
-        document.getElementById('pointCity').value = item.city || item.region || city;
+        document.getElementById('pointCity').value =
+          (item.ad_info && item.ad_info.city) || item.city || item.region || city;
         document.getElementById('pointLat').value = lat;
         document.getElementById('pointLng').value = lng;
         pointSource = 'place_search';
@@ -580,7 +581,7 @@ function submitPoint(formData) {
   const lngText = String(formData.get('lng') || '').trim();
   const lat = Number(latText);
   const lng = Number(lngText);
-  if (!DAYS.includes(day) || !/^\d{2}:\d{2}$/.test(time) || !title || !city
+  if (!DAYS.includes(day) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time) || !title || !city
       || !Object.prototype.hasOwnProperty.call(CATS, cat)
       || !latText || !lngText || !Number.isFinite(lat) || !Number.isFinite(lng)
       || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
@@ -787,7 +788,8 @@ function renderMap(d, list){
       styleId: 'route'
     }] : []);
   } catch(e){
-    document.getElementById('mapTitle').innerHTML += ' · ❌渲染失败: ' + e.message;
+    document.getElementById('mapTitle').innerHTML +=
+      ' · ❌渲染失败: ' + escapeHtml(e && e.message || e);
     return;
   }
 

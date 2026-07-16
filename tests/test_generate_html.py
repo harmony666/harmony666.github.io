@@ -157,6 +157,15 @@ class GeneratedHtmlTest(unittest.TestCase):
         self.assertIn("map.on('click', mapPickHandler)", self.html)
         self.assertIn("map.off('click', mapPickHandler)", self.html)
 
+    def test_suggestion_uses_tencent_ad_info_city_before_fallbacks(self):
+        search_fn = self.html.split("function searchPlaces(keyword, city)", 1)[1].split(
+            "function submitPoint(formData)", 1
+        )[0]
+        city_expression = (
+            "(item.ad_info && item.ad_info.city) || item.city || item.region || city"
+        )
+        self.assertIn(city_expression, search_fn)
+
     def test_submit_point_uses_safe_id_and_atomic_candidate_save(self):
         self.assertIn("function submitPoint(formData)", self.html)
         submit_fn = self.html.split("function submitPoint(formData)", 1)[1].split(
@@ -174,6 +183,8 @@ class GeneratedHtmlTest(unittest.TestCase):
         self.assertIn("source: pointSource", submit_fn)
         self.assertIn("const latText =", submit_fn)
         self.assertIn("!latText || !lngText", submit_fn)
+        self.assertIn(r"/^([01]\d|2[0-3]):[0-5]\d$/.test(time)", submit_fn)
+        self.assertNotIn(r"/^\d{2}:\d{2}$/.test(time)", submit_fn)
 
     def test_timeline_cards_support_drag_reordering_with_rollback(self):
         self.assertIn('draggable="true"', self.html)
@@ -205,6 +216,14 @@ class GeneratedHtmlTest(unittest.TestCase):
         self.assertIn("escapeHtml(h.addr)", timeline_fn)
         self.assertIn("escapeHtml(h.addr)", fly_fn)
         self.assertIn("textContent", search_fn)
+
+    def test_render_map_escapes_error_message_before_using_inner_html(self):
+        render_map = self.html.split("function renderMap(d, list){", 1)[1].split(
+            "function selectDay(d){", 1
+        )[0]
+        catch_block = render_map.split("} catch(e){", 1)[1].split("return;", 1)[0]
+        self.assertIn("escapeHtml(e && e.message || e)", catch_block)
+        self.assertNotIn(" + e.message", catch_block)
 
 
 if __name__ == "__main__":
