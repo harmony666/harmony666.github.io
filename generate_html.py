@@ -677,6 +677,43 @@ function polylineStyle() {
   });
 }
 
+function fitMapToPoints(list) {
+  if (!isMapAvailable() || !list || list.length === 0) return;
+  const lats = list.map(function(p){ return Number(p.lat); });
+  const lngs = list.map(function(p){ return Number(p.lng); });
+  const minLat = Math.min.apply(null, lats);
+  const maxLat = Math.max.apply(null, lats);
+  const minLng = Math.min.apply(null, lngs);
+  const maxLng = Math.max.apply(null, lngs);
+  const centerLat = (minLat + maxLat) / 2;
+  const centerLng = (minLng + maxLng) / 2;
+  if (list.length === 1 || (maxLat - minLat < 0.0005 && maxLng - minLng < 0.0005)) {
+    map.setCenter(new TMap.LatLng(centerLat, centerLng));
+    map.setZoom(14);
+    return;
+  }
+  const sw = new TMap.LatLng(minLat, minLng);
+  const ne = new TMap.LatLng(maxLat, maxLng);
+  try {
+    map.fitBounds(new TMap.LatLngBounds(sw, ne), {
+      padding: { top: 80, bottom: 80, left: 80, right: 80 }
+    });
+  } catch (e) {
+    const span = Math.max(maxLat - minLat, maxLng - minLng);
+    const zoom = span < 0.04 ? 14 : span < 0.09 ? 13 : span < 0.25 ? 12 : span < 0.8 ? 10 : span < 2 ? 8 : 7;
+    map.setCenter(new TMap.LatLng(centerLat, centerLng));
+    map.setZoom(zoom);
+  }
+}
+
+function scheduleFitMapToPoints(list) {
+  requestAnimationFrame(function() {
+    requestAnimationFrame(function() {
+      fitMapToPoints(list);
+    });
+  });
+}
+
 function initMap(){
   mapReady = false;
   const c0 = POIS[0] || {lat: 30.5928, lng: 114.3055};
@@ -776,33 +813,7 @@ function renderMap(d, list){
   }
 
   if (infoWin) { infoWin.close(); infoWin = null; }
-  if (list.length === 0) return;
-  if (list.length === 1) {
-    map.setCenter(new TMap.LatLng(list[0].lat, list[0].lng));
-    map.setZoom(15);
-    return;
-  }
-
-  // 用 fitBounds 强制 fit 全部 POI（无论单城/跨城都正确）
-  try {
-    const lats = list.map(function(p){return Number(p.lat);});
-    const lngs = list.map(function(p){return Number(p.lng);});
-    const sw = new TMap.LatLng(Math.min.apply(null,lats), Math.min.apply(null,lngs));
-    const ne = new TMap.LatLng(Math.max.apply(null,lats), Math.max.apply(null,lngs));
-    map.fitBounds(new TMap.LatLngBounds(sw, ne), { padding: [70, 70, 70, 70] });
-  } catch(e){
-    // 兜底：setCenter + setZoom
-    const lats = list.map(function(p){return Number(p.lat);});
-    const lngs = list.map(function(p){return Number(p.lng);});
-    const clat = (Math.min.apply(null,lats) + Math.max.apply(null,lats)) / 2;
-    const clng = (Math.min.apply(null,lngs) + Math.max.apply(null,lngs)) / 2;
-    const span = Math.max(Math.max.apply(null,lats)-Math.min.apply(null,lats),
-                          Math.max.apply(null,lngs)-Math.min.apply(null,lngs));
-    const zoom = span<0.04?14 : span<0.09?13 : span<0.25?12 : span<0.8?10 : span<2?8 : 7;
-    map.setCenter(new TMap.LatLng(clat, clng));
-    map.setZoom(zoom);
-  }
-
+  scheduleFitMapToPoints(list);
 }
 
 function selectDay(d){

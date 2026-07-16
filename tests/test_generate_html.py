@@ -28,18 +28,35 @@ class GeneratedHtmlTest(unittest.TestCase):
         self.assertIn("showArrow: true", self.html)
         self.assertIn("arrowOptions: { width: 8, height: 5, space: 60 }", self.html)
 
+    def test_day_switch_fits_map_to_current_points(self):
+        self.assertIn("function fitMapToPoints(list)", self.html)
+        self.assertIn("function scheduleFitMapToPoints(list)", self.html)
+        render_map = self.html.split("function renderMap(d, list){", 1)[1].split(
+            "function selectDay(d){", 1
+        )[0]
+        self.assertIn("scheduleFitMapToPoints(list)", render_map)
+        fit_fn = self.html.split("function fitMapToPoints(list)", 1)[1].split(
+            "function scheduleFitMapToPoints", 1
+        )[0]
+        self.assertIn("padding: { top: 80, bottom: 80, left: 80, right: 80 }", fit_fn)
+        self.assertNotIn("padding: [70, 70, 70, 70]", self.html)
+
     def test_render_map_handles_zero_and_one_point_days(self):
-        self.assertIn("if (list.length === 0)", self.html)
-        self.assertIn("if (list.length === 1)", self.html)
+        fit_fn = self.html.split("function fitMapToPoints(list)", 1)[1].split(
+            "function scheduleFitMapToPoints", 1
+        )[0]
+        self.assertIn("list.length === 0", fit_fn)
+        self.assertIn("list.length === 1", fit_fn)
 
     def test_render_map_closes_info_window_before_empty_day_returns(self):
         render_map = self.html.split("function renderMap(d, list){", 1)[1].split(
             "function selectDay(d){", 1)[0]
         close_info = "if (infoWin) { infoWin.close(); infoWin = null; }"
         self.assertIn(close_info, render_map)
+        self.assertIn("scheduleFitMapToPoints(list)", render_map)
         self.assertLess(
             render_map.index(close_info),
-            render_map.index("if (list.length === 0)"),
+            render_map.index("scheduleFitMapToPoints(list)"),
         )
 
     def test_generator_works_from_project_parent_directory(self):
