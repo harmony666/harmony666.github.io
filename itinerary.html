@@ -101,10 +101,53 @@ body{
 .place-result{border:1px solid var(--line);border-radius:8px;background:#fff;padding:9px;text-align:left;cursor:pointer}
 .place-result small{display:block;color:var(--muted);margin-top:3px}
 .editor-message{min-height:20px;color:#c33;font-size:12px;margin-top:10px}
+.mobile-bar{display:none}
+.mobile-more{display:none}
+.actions-menu{display:none}
 @media (max-width:900px){
-  .layout{grid-template-columns:1fr; grid-template-rows:50% 50%}
-  .map-wrap{border-left:none; border-top:1px solid var(--line)}
-  .banner h1{font-size:22px}
+  .banner{padding:14px 14px 12px}
+  .banner-inner{gap:10px; align-items:flex-start}
+  .banner h1{font-size:18px; letter-spacing:0; text-align:left}
+  .banner .sub{text-align:left; letter-spacing:1px; font-size:11px}
+  .badges{width:100%; justify-content:space-between}
+  .badge{min-width:0; flex:1; padding:8px 6px}
+  .badge .v{font-size:16px}
+  .badge .l{font-size:10px; letter-spacing:0}
+  .actions{width:100%; justify-content:flex-start; gap:6px}
+  .actions .action-btn.desktop-only{display:none}
+  .mobile-more{display:inline-flex}
+  .actions-menu{position:absolute; right:14px; top:100%; z-index:30; margin-top:6px;
+    background:#fff; color:var(--ink); border:1px solid var(--line); border-radius:12px;
+    box-shadow:var(--shadow); min-width:160px; padding:6px; display:none}
+  .actions-menu.open{display:grid}
+  .actions-menu button{border:0; background:transparent; text-align:left; padding:10px 12px;
+    border-radius:8px; font:inherit; font-size:13px; color:var(--ink); cursor:pointer}
+  .actions-menu button:hover{background:var(--bg1)}
+  .actions{position:relative}
+  .tabs{padding:8px 12px; gap:6px; -webkit-overflow-scrolling:touch}
+  .tab{padding:7px 12px; font-size:13px}
+  .mobile-bar{display:flex; gap:8px; padding:8px 12px; flex:0 0 auto;
+    background:#fff; border-bottom:1px solid var(--line)}
+  .mobile-bar button{flex:1; border:1px solid var(--line); background:#fff; color:var(--sub);
+    border-radius:10px; padding:10px 12px; font:inherit; font-size:14px; font-weight:700; cursor:pointer}
+  .mobile-bar button.active{background:linear-gradient(120deg,#635bff,#0aa3ff); color:#fff; border-color:transparent}
+  .layout{grid-template-columns:1fr; grid-template-rows:1fr}
+  .layout.mobile-map .timeline{display:none}
+  .layout.mobile-list .map-wrap{display:none}
+  .layout.mobile-map .map-wrap,
+  .layout.mobile-list .timeline{display:block; min-height:0; height:100%}
+  .map-wrap{border-left:none}
+  .timeline{padding:14px 12px 80px}
+  .card{padding:11px 12px; padding-right:40px}
+  .card .edit-btn{right:12px; top:40px}
+  .card .time{flex:0 0 44px; font-size:12px}
+  .day-head .d{font-size:18px}
+  .point-editor{width:100%; padding:18px 14px calc(18px + env(safe-area-inset-bottom,0px))}
+}
+@media (min-width:901px){
+  .mobile-bar{display:none !important}
+  .layout.mobile-map .timeline,
+  .layout.mobile-list .map-wrap{display:revert}
 }
 </style>
 </head>
@@ -117,9 +160,15 @@ body{
     </div>
     <div class="actions">
       <button class="action-btn" id="addPointBtn" type="button">添加点</button>
-      <button class="action-btn" id="exportBtn" type="button">导出 JSON</button>
-      <button class="action-btn" id="importBtn" type="button">导入 JSON</button>
-      <button class="action-btn" id="resetBtn" type="button">恢复初始行程</button>
+      <button class="action-btn desktop-only" id="exportBtn" type="button">导出 JSON</button>
+      <button class="action-btn desktop-only" id="importBtn" type="button">导入 JSON</button>
+      <button class="action-btn desktop-only" id="resetBtn" type="button">恢复初始行程</button>
+      <button class="action-btn mobile-more" id="moreBtn" type="button" aria-expanded="false" aria-controls="actionsMenu">更多</button>
+      <div class="actions-menu" id="actionsMenu" role="menu">
+        <button type="button" id="exportBtnMobile" role="menuitem">导出 JSON</button>
+        <button type="button" id="importBtnMobile" role="menuitem">导入 JSON</button>
+        <button type="button" id="resetBtnMobile" role="menuitem">恢复初始行程</button>
+      </div>
       <input id="importInput" type="file" accept=".json,application/json" hidden>
       <div id="saveStatus" class="save-status" role="status" aria-live="polite"></div>
     </div>
@@ -131,7 +180,11 @@ body{
   </div>
 </header>
 <nav class="tabs" id="tabs"></nav>
-<main class="layout">
+<div class="mobile-bar" id="mobileBar" role="tablist" aria-label="手机视图切换">
+  <button type="button" id="viewListBtn" class="active" role="tab" aria-selected="true">行程</button>
+  <button type="button" id="viewMapBtn" role="tab" aria-selected="false">地图</button>
+</div>
+<main class="layout mobile-list" id="mainLayout">
   <section class="timeline" id="timeline">
     <div style="color:var(--muted);padding:40px;text-align:center">加载中…</div>
   </section>
@@ -305,12 +358,12 @@ body{
 </script>
 <script>
 const KEY = "B6VBZ-V75KG-HBEQP-IRLIB-ANBLZ-W6BD5";
-const BASE_POIS = [{"id": "seed-1-1", "day": 1, "cat": "transit", "time": "11:05", "title": "抵达济南", "desc": "航班 9:40 武汉天河→11:05 济南遥墙", "city": "济南", "name": "济南遥墙国际机场", "lat": 36.857395, "lng": 117.218815, "position": 1}, {"id": "seed-1-2", "day": 1, "cat": "culture", "time": "14:00", "title": "趵突泉", "desc": "天下第一泉，泉城标志性名泉", "city": "济南", "name": "趵突泉", "lat": 36.660958, "lng": 117.016158, "position": 2}, {"id": "seed-1-3", "day": 1, "cat": "scenic", "time": "15:30", "title": "五龙潭公园", "desc": "清泉绿潭，闹市中的幽静园林", "city": "济南", "name": "五龙潭公园", "lat": 36.66605, "lng": 117.01482, "position": 3}, {"id": "seed-1-4", "day": 1, "cat": "scenic", "time": "16:30", "title": "泉城广场", "desc": "济南城市客厅，泉城路商圈", "city": "济南", "name": "泉城广场", "lat": 36.661304, "lng": 117.022195, "position": 4}, {"id": "seed-1-5", "day": 1, "cat": "food", "time": "18:00", "title": "芙蓉街", "desc": "老城美食街，油旋/把子肉/鲁菜小吃", "city": "济南", "name": "芙蓉街", "lat": 36.666999, "lng": 117.023781, "position": 5}, {"id": "seed-1-6", "day": 1, "cat": "scenic", "time": "19:30", "title": "大明湖(夜游)", "desc": "四面荷花三面柳，夏雨荷故地", "city": "济南", "name": "大明湖", "lat": 36.681356, "lng": 117.029124, "position": 6}, {"id": "seed-1-7", "day": 1, "cat": "hotel", "time": "21:30", "title": "济南住宿·天桥区", "desc": "恒大滨河左岸D9公寓(已订 ¥138)", "city": "济南", "name": "天桥区小清河北路恒大滨河左岸", "lat": 36.704849, "lng": 117.027676, "position": 7}, {"id": "seed-2-1", "day": 2, "cat": "scenic", "time": "09:00", "title": "千佛山", "desc": "城东南名胜，佛教石刻与俯城视野", "city": "济南", "name": "千佛山", "lat": 36.64518, "lng": 117.037094, "position": 1}, {"id": "seed-2-2", "day": 2, "cat": "culture", "time": "11:00", "title": "山东省博物馆", "desc": "齐鲁文明通史，亚醜钺等馆藏", "city": "济南", "name": "山东省博物馆", "lat": 36.658497, "lng": 117.095645, "position": 2}, {"id": "seed-2-3", "day": 2, "cat": "culture", "time": "13:00", "title": "山东美术馆", "desc": "现代艺术展陈，免费参观", "city": "济南", "name": "山东美术馆", "lat": 36.657698, "lng": 117.097938, "position": 3}, {"id": "seed-2-4", "day": 2, "cat": "culture", "time": "15:00", "title": "洪家楼教堂", "desc": "华北最大哥特式天主教堂", "city": "济南", "name": "洪家楼教堂", "lat": 36.686233, "lng": 117.066081, "position": 4}, {"id": "seed-2-5", "day": 2, "cat": "food", "time": "18:00", "title": "宽厚里", "desc": "古风商业街，鲁味夜宵与文创", "city": "济南", "name": "宽厚里", "lat": 36.663521, "lng": 117.031124, "position": 5}, {"id": "seed-2-6", "day": 2, "cat": "transit", "time": "20:42", "title": "济南站出发", "desc": "20:42 硬卧 Z 字头→次日 5:30 威海", "city": "济南", "name": "济南站", "lat": 36.67072, "lng": 116.990934, "position": 6}, {"id": "seed-3-1", "day": 3, "cat": "transit", "time": "05:30", "title": "抵达威海·取车", "desc": "5:30 到站，7:00 一嗨取车(秦PLUS)", "city": "威海", "name": "威海站", "lat": 37.426952, "lng": 122.143769, "position": 1}, {"id": "seed-3-2", "day": 3, "cat": "culture", "time": "09:00", "title": "刘公岛", "desc": "甲午战争纪念地，北洋海军遗址", "city": "威海", "name": "刘公岛", "lat": 37.504472, "lng": 122.190461, "position": 2}, {"id": "seed-3-3", "day": 3, "cat": "scenic", "time": "14:00", "title": "威海公园", "desc": "海滨带状公园，画中画地标", "city": "威海", "name": "威海公园", "lat": 37.46539, "lng": 122.144826, "position": 3}, {"id": "seed-3-4", "day": 3, "cat": "scenic", "time": "15:30", "title": "幸福门", "desc": "威海地标拱门，登高看海", "city": "威海", "name": "幸福门广场", "lat": 37.501473, "lng": 122.127677, "position": 4}, {"id": "seed-3-5", "day": 3, "cat": "culture", "time": "17:00", "title": "环翠楼", "desc": "城市观景楼，俯瞰威海湾", "city": "威海", "name": "环翠楼公园", "lat": 37.505013, "lng": 122.108185, "position": 5}, {"id": "seed-3-6", "day": 3, "cat": "hotel", "time": "19:30", "title": "威海住宿·山大路", "desc": "山大路15-6号建设银行旁(已订 ¥352)", "city": "威海", "name": "高新区山大路15-6号", "lat": 37.524481, "lng": 122.06124, "position": 6}, {"id": "seed-4-1", "day": 4, "cat": "scenic", "time": "08:00", "title": "成山头", "desc": "天之尽头，中国大陆最东端", "city": "威海", "name": "成山头", "lat": 37.402266, "lng": 122.698754, "position": 1}, {"id": "seed-4-2", "day": 4, "cat": "scenic", "time": "11:00", "title": "那香海", "desc": "钻石沙滩，滨海度假带", "city": "威海", "name": "那香海", "lat": 37.408857, "lng": 122.408466, "position": 2}, {"id": "seed-4-3", "day": 4, "cat": "scenic", "time": "14:00", "title": "鸡鸣岛", "desc": "海岛渔村，《爸爸去哪儿》取景", "city": "威海", "name": "鸡鸣岛", "lat": 37.430813, "lng": 122.484874, "position": 3}, {"id": "seed-4-4", "day": 4, "cat": "scenic", "time": "17:00", "title": "国际海水浴场", "desc": "傍晚踏浪游泳，日落最美", "city": "威海", "name": "国际海水浴场", "lat": 37.529038, "lng": 122.045212, "position": 4}, {"id": "seed-4-5", "day": 4, "cat": "hotel", "time": "19:30", "title": "威海住宿·山大路(继续住)", "desc": "继续住山大路", "city": "威海", "name": "高新区山大路15-6号", "lat": 37.524481, "lng": 122.06124, "position": 5}, {"id": "seed-5-1", "day": 5, "cat": "scenic", "time": "08:00", "title": "猫头山", "desc": "威海最美海岸线观景公路", "city": "威海", "name": "猫头山", "lat": 37.555, "lng": 122.1479, "position": 1}, {"id": "seed-5-2", "day": 5, "cat": "culture", "time": "12:00", "title": "烟台山", "desc": "近代开埠领事馆建筑群+灯塔", "city": "烟台", "name": "烟台山", "lat": 37.546603, "lng": 121.402332, "position": 2}, {"id": "seed-5-3", "day": 5, "cat": "food", "time": "15:00", "title": "朝阳街", "desc": "红酒文化街区，洋房美食", "city": "烟台", "name": "朝阳街", "lat": 37.544034, "lng": 121.401875, "position": 3}, {"id": "seed-5-4", "day": 5, "cat": "culture", "time": "17:00", "title": "所城里", "desc": "烟台古城，明代所城肌理", "city": "烟台", "name": "所城里", "lat": 37.536403, "lng": 121.399737, "position": 4}, {"id": "seed-5-5", "day": 5, "cat": "hotel", "time": "20:00", "title": "烟台住宿·金海湾", "desc": "烟台山旁海景(推荐 ¥400)", "city": "烟台", "name": "烟台金海湾酒店", "lat": 37.54738, "lng": 121.403291, "position": 5}, {"id": "seed-6-1", "day": 6, "cat": "scenic", "time": "08:30", "title": "养马岛", "desc": "东方马尔代夫，环岛滨海路", "city": "烟台", "name": "养马岛", "lat": 37.466471, "lng": 121.619616, "position": 1}, {"id": "seed-6-2", "day": 6, "cat": "culture", "time": "13:00", "title": "蓬莱阁", "desc": "我国古代四大名楼，八仙故里", "city": "烟台", "name": "蓬莱阁", "lat": 37.826972, "lng": 120.754009, "position": 2}, {"id": "seed-6-3", "day": 6, "cat": "scenic", "time": "15:30", "title": "八仙过海景区", "desc": "海上园林，八仙过海传说地", "city": "烟台", "name": "八仙过海景区", "lat": 37.825645, "lng": 120.775532, "position": 3}, {"id": "seed-6-4", "day": 6, "cat": "shop", "time": "19:00", "title": "大悦城", "desc": "滨海商圈，夜生活与购物", "city": "烟台", "name": "烟台大悦城", "lat": 37.54555, "lng": 121.387269, "position": 4}, {"id": "seed-6-5", "day": 6, "cat": "hotel", "time": "21:00", "title": "烟台住宿·金海湾(继续住)", "desc": "继续住金海湾", "city": "烟台", "name": "烟台金海湾酒店", "lat": 37.54738, "lng": 121.403291, "position": 5}, {"id": "seed-7-1", "day": 7, "cat": "culture", "time": "09:00", "title": "张裕酒文化博物馆", "desc": "中国葡萄酒工业发源地", "city": "烟台", "name": "张裕酒文化博物馆", "lat": 37.541816, "lng": 121.405855, "position": 1}, {"id": "seed-7-2", "day": 7, "cat": "scenic", "time": "11:00", "title": "第一海水浴场", "desc": "烟台核心浴场，沙滩漫步", "city": "烟台", "name": "第一海水浴场", "lat": 37.536521, "lng": 121.419581, "position": 2}, {"id": "seed-7-3", "day": 7, "cat": "shop", "time": "13:00", "title": "渔人码头(午餐)", "desc": "烟台山旁欧风码头，海鲜西餐", "city": "烟台", "name": "渔人码头", "lat": 37.5462, "lng": 121.4083, "position": 3}, {"id": "seed-7-4", "day": 7, "cat": "food", "time": "18:00", "title": "韩乐坊", "desc": "威海韩风夜市，烤肉/海鲜夜宵", "city": "威海", "name": "韩乐坊", "lat": 37.429351, "lng": 122.152957, "position": 4}, {"id": "seed-7-5", "day": 7, "cat": "hotel", "time": "20:30", "title": "威海站住宿·汉庭", "desc": "汉庭威海火车站店(推荐 ¥150)", "city": "威海", "name": "汉庭酒店威海火车站店", "lat": 37.419152, "lng": 122.15158, "position": 5}, {"id": "seed-8-1", "day": 8, "cat": "scenic", "time": "07:00", "title": "火炬八街", "desc": "清晨打卡威海小镰仓", "city": "威海", "name": "火炬八街", "lat": 37.522772, "lng": 122.031309, "position": 1}, {"id": "seed-8-2", "day": 8, "cat": "scenic", "time": "08:00", "title": "国际海水浴场(最后玩海)", "desc": "最后玩海，留念拍照", "city": "威海", "name": "国际海水浴场", "lat": 37.529038, "lng": 122.045212, "position": 2}, {"id": "seed-8-3", "day": 8, "cat": "transit", "time": "09:19", "title": "威海站发车", "desc": "9:19 硬卧→次日 5:03 武昌", "city": "威海", "name": "威海站", "lat": 37.426952, "lng": 122.143769, "position": 3}, {"id": "seed-9-1", "day": 9, "cat": "transit", "time": "05:03", "title": "抵达武昌", "desc": "行程结束，平安到家", "city": "武汉", "name": "武昌站", "lat": 30.528671, "lng": 114.317792, "position": 1}];
-const DAY_META = {"1": {"date": "8月1日", "sub": "济南 · 初见泉城", "count": 7}, "2": {"date": "8月2日", "sub": "济南 · 山湖与博物馆", "count": 6}, "3": {"date": "8月3日", "sub": "威海 · 抵岸登岛", "count": 6}, "4": {"date": "8月4日", "sub": "威海 · 海角天涯", "count": 5}, "5": {"date": "8月5日", "sub": "威海→烟台 · 跨城自驾", "count": 5}, "6": {"date": "8月6日", "sub": "烟台 · 蓬莱仙境", "count": 5}, "7": {"date": "8月7日", "sub": "烟台→威海 · 归途夜市", "count": 5}, "8": {"date": "8月8日", "sub": "威海 · 收官启程", "count": 3}, "9": {"date": "8月9日", "sub": "武汉 · 平安到家", "count": 1}};
+const BASE_POIS = [{"id": "seed-1-1", "day": 1, "cat": "transit", "time": "11:05", "title": "抵达济南", "desc": "航班 9:40 武汉天河→11:05 济南遥墙，票价约¥1117", "city": "济南", "name": "济南遥墙国际机场", "lat": 36.857395, "lng": 117.218815, "position": 1}, {"id": "seed-1-2", "day": 1, "cat": "hotel", "time": "12:15", "title": "济南住宿·天桥区", "desc": "先入住放行李（约12点后）；恒大滨河左岸D9公寓(已订 ¥138)", "city": "济南", "name": "天桥区小清河北路恒大滨河左岸", "lat": 36.704849, "lng": 117.027676, "position": 2}, {"id": "seed-1-3", "day": 1, "cat": "scenic", "time": "13:30", "title": "大明湖", "desc": "酒店就近出发；四面荷花三面柳，夏雨荷故地", "city": "济南", "name": "大明湖", "lat": 36.681356, "lng": 117.029124, "position": 3}, {"id": "seed-1-4", "day": 1, "cat": "culture", "time": "15:00", "title": "趵突泉", "desc": "天下第一泉，泉城标志性名泉", "city": "济南", "name": "趵突泉", "lat": 36.660958, "lng": 117.016158, "position": 4}, {"id": "seed-1-5", "day": 1, "cat": "scenic", "time": "16:15", "title": "五龙潭公园", "desc": "清泉绿潭，闹市中的幽静园林，紧邻趵突泉", "city": "济南", "name": "五龙潭公园", "lat": 36.66605, "lng": 117.01482, "position": 5}, {"id": "seed-1-6", "day": 1, "cat": "food", "time": "17:45", "title": "芙蓉街", "desc": "老城美食街，油旋/把子肉/鲁菜小吃", "city": "济南", "name": "芙蓉街", "lat": 36.666999, "lng": 117.023781, "position": 6}, {"id": "seed-1-7", "day": 1, "cat": "scenic", "time": "19:30", "title": "泉城广场", "desc": "济南城市客厅，泉城路夜景与商圈", "city": "济南", "name": "泉城广场", "lat": 36.661304, "lng": 117.022195, "position": 7}, {"id": "seed-1-8", "day": 1, "cat": "hotel", "time": "21:00", "title": "济南住宿·天桥区(回宿)", "desc": "当日行程结束，返回酒店过夜", "city": "济南", "name": "天桥区小清河北路恒大滨河左岸", "lat": 36.704849, "lng": 117.027676, "position": 8}, {"id": "seed-2-1", "day": 2, "cat": "hotel", "time": "08:30", "title": "济南住宿·天桥区(出发)", "desc": "退房/带行李出发，今日终点济南站", "city": "济南", "name": "天桥区小清河北路恒大滨河左岸", "lat": 36.704849, "lng": 117.027676, "position": 1}, {"id": "seed-2-2", "day": 2, "cat": "culture", "time": "09:30", "title": "洪家楼教堂", "desc": "华北最大哥特式天主教堂", "city": "济南", "name": "洪家楼教堂", "lat": 36.686233, "lng": 117.066081, "position": 2}, {"id": "seed-2-3", "day": 2, "cat": "culture", "time": "11:00", "title": "山东省博物馆", "desc": "齐鲁文明通史，亚醜钺等馆藏", "city": "济南", "name": "山东省博物馆", "lat": 36.658497, "lng": 117.095645, "position": 3}, {"id": "seed-2-4", "day": 2, "cat": "culture", "time": "13:00", "title": "山东美术馆", "desc": "与省博相邻，现代艺术展陈，免费参观", "city": "济南", "name": "山东美术馆", "lat": 36.657698, "lng": 117.097938, "position": 4}, {"id": "seed-2-5", "day": 2, "cat": "scenic", "time": "15:00", "title": "千佛山", "desc": "城东南名胜，佛教石刻与俯城视野", "city": "济南", "name": "千佛山", "lat": 36.64518, "lng": 117.037094, "position": 5}, {"id": "seed-2-6", "day": 2, "cat": "food", "time": "18:00", "title": "宽厚里", "desc": "古风商业街，鲁味夜宵；之后前往济南站", "city": "济南", "name": "宽厚里", "lat": 36.663521, "lng": 117.031124, "position": 6}, {"id": "seed-2-7", "day": 2, "cat": "transit", "time": "20:42", "title": "济南站出发", "desc": "20:42 硬卧→次日 5:30 威海，票价约¥336", "city": "济南", "name": "济南站", "lat": 36.67072, "lng": 116.990934, "position": 7}, {"id": "seed-3-1", "day": 3, "cat": "transit", "time": "05:30", "title": "抵达威海·取车", "desc": "5:30 到站；7:00 一嗨取车秦PLUS(已订 ¥937，用至8/7 21:00)；行李放车上，不必先去酒店", "city": "威海", "name": "威海站", "lat": 37.426952, "lng": 122.143769, "position": 1}, {"id": "seed-3-2", "day": 3, "cat": "culture", "time": "09:00", "title": "刘公岛", "desc": "甲午战争纪念地，北洋海军遗址（酒店12点后入住，上午不必回酒店）", "city": "威海", "name": "刘公岛", "lat": 37.504472, "lng": 122.190461, "position": 2}, {"id": "seed-3-3", "day": 3, "cat": "scenic", "time": "14:00", "title": "威海公园", "desc": "海滨带状公园，画中画地标", "city": "威海", "name": "威海公园", "lat": 37.46539, "lng": 122.144826, "position": 3}, {"id": "seed-3-4", "day": 3, "cat": "scenic", "time": "15:30", "title": "幸福门", "desc": "威海地标拱门，登高看海", "city": "威海", "name": "幸福门广场", "lat": 37.501473, "lng": 122.127677, "position": 4}, {"id": "seed-3-5", "day": 3, "cat": "culture", "time": "17:00", "title": "环翠楼", "desc": "城市观景楼，俯瞰威海湾；随后西行入住", "city": "威海", "name": "环翠楼公园", "lat": 37.505013, "lng": 122.108185, "position": 5}, {"id": "seed-3-6", "day": 3, "cat": "hotel", "time": "19:30", "title": "威海住宿·山大路", "desc": "傍晚入住放行李；山大路15-6号建设银行旁(已订 ¥352/2晚，住至8/5早)", "city": "威海", "name": "高新区山大路15-6号", "lat": 37.524481, "lng": 122.06124, "position": 6}, {"id": "seed-4-1", "day": 4, "cat": "hotel", "time": "07:30", "title": "威海住宿·山大路(出发)", "desc": "酒店出发，行李可放车上；东线单向推进少回头路", "city": "威海", "name": "高新区山大路15-6号", "lat": 37.524481, "lng": 122.06124, "position": 1}, {"id": "seed-4-2", "day": 4, "cat": "scenic", "time": "09:30", "title": "那香海", "desc": "钻石沙滩，滨海度假带", "city": "威海", "name": "那香海", "lat": 37.408857, "lng": 122.408466, "position": 2}, {"id": "seed-4-3", "day": 4, "cat": "scenic", "time": "12:00", "title": "鸡鸣岛", "desc": "海岛渔村，《爸爸去哪儿》取景", "city": "威海", "name": "鸡鸣岛", "lat": 37.430813, "lng": 122.484874, "position": 3}, {"id": "seed-4-4", "day": 4, "cat": "scenic", "time": "14:30", "title": "成山头", "desc": "天之尽头，中国大陆最东端；之后原路偏西回城", "city": "威海", "name": "成山头", "lat": 37.402266, "lng": 122.698754, "position": 4}, {"id": "seed-4-5", "day": 4, "cat": "scenic", "time": "18:00", "title": "国际海水浴场", "desc": "傍晚踏浪游泳，日落最美；近酒店", "city": "威海", "name": "国际海水浴场", "lat": 37.529038, "lng": 122.045212, "position": 5}, {"id": "seed-4-6", "day": 4, "cat": "hotel", "time": "20:00", "title": "威海住宿·山大路(回宿)", "desc": "当日结束，返回山大路酒店过夜", "city": "威海", "name": "高新区山大路15-6号", "lat": 37.524481, "lng": 122.06124, "position": 6}, {"id": "seed-5-1", "day": 5, "cat": "hotel", "time": "07:30", "title": "威海住宿·山大路(退房)", "desc": "退房，行李上车；今日跨城至烟台，烟台酒店12点后入住", "city": "威海", "name": "高新区山大路15-6号", "lat": 37.524481, "lng": 122.06124, "position": 1}, {"id": "seed-5-2", "day": 5, "cat": "scenic", "time": "08:30", "title": "猫头山", "desc": "威海最美海岸线观景公路，随后自驾赴烟台", "city": "威海", "name": "猫头山", "lat": 37.555, "lng": 122.1479, "position": 2}, {"id": "seed-5-3", "day": 5, "cat": "culture", "time": "12:00", "title": "烟台山", "desc": "近代开埠领事馆建筑群+灯塔；行李在车上，可先玩后入住", "city": "烟台", "name": "烟台山", "lat": 37.546603, "lng": 121.402332, "position": 3}, {"id": "seed-5-4", "day": 5, "cat": "food", "time": "15:00", "title": "朝阳街", "desc": "红酒文化街区，洋房美食", "city": "烟台", "name": "朝阳街", "lat": 37.544034, "lng": 121.401875, "position": 4}, {"id": "seed-5-5", "day": 5, "cat": "culture", "time": "17:00", "title": "所城里", "desc": "烟台古城，明代所城肌理", "city": "烟台", "name": "所城里", "lat": 37.536403, "lng": 121.399737, "position": 5}, {"id": "seed-5-6", "day": 5, "cat": "hotel", "time": "20:00", "title": "烟台住宿·金海湾", "desc": "傍晚入住；烟台山旁海景(预算约¥400/晚，未订)", "city": "烟台", "name": "烟台金海湾酒店", "lat": 37.54738, "lng": 121.403291, "position": 6}, {"id": "seed-6-1", "day": 6, "cat": "hotel", "time": "08:00", "title": "烟台住宿·金海湾(出发)", "desc": "酒店出发；上午养马岛，下午蓬莱，少走回头路", "city": "烟台", "name": "烟台金海湾酒店", "lat": 37.54738, "lng": 121.403291, "position": 1}, {"id": "seed-6-2", "day": 6, "cat": "scenic", "time": "09:00", "title": "养马岛", "desc": "东方马尔代夫，环岛滨海路（上午）", "city": "烟台", "name": "养马岛", "lat": 37.466471, "lng": 121.619616, "position": 2}, {"id": "seed-6-3", "day": 6, "cat": "culture", "time": "13:30", "title": "蓬莱阁", "desc": "我国古代四大名楼，八仙故里（下午）", "city": "烟台", "name": "蓬莱阁", "lat": 37.826972, "lng": 120.754009, "position": 3}, {"id": "seed-6-4", "day": 6, "cat": "scenic", "time": "15:45", "title": "八仙过海景区", "desc": "海上园林，八仙过海传说地；与蓬莱阁同区顺路", "city": "烟台", "name": "八仙过海景区", "lat": 37.825645, "lng": 120.775532, "position": 4}, {"id": "seed-6-5", "day": 6, "cat": "hotel", "time": "21:00", "title": "烟台住宿·金海湾(回宿)", "desc": "自蓬莱回城过夜；大悦城视体力可选路过", "city": "烟台", "name": "烟台金海湾酒店", "lat": 37.54738, "lng": 121.403291, "position": 5}, {"id": "seed-7-1", "day": 7, "cat": "hotel", "time": "08:30", "title": "烟台住宿·金海湾(退房)", "desc": "退房，行李上车；上午市区轻游后回威海还车", "city": "烟台", "name": "烟台金海湾酒店", "lat": 37.54738, "lng": 121.403291, "position": 1}, {"id": "seed-7-2", "day": 7, "cat": "culture", "time": "09:15", "title": "张裕酒文化博物馆", "desc": "中国葡萄酒工业发源地", "city": "烟台", "name": "张裕酒文化博物馆", "lat": 37.541816, "lng": 121.405855, "position": 2}, {"id": "seed-7-3", "day": 7, "cat": "scenic", "time": "11:00", "title": "第一海水浴场", "desc": "烟台核心浴场，沙滩漫步", "city": "烟台", "name": "第一海水浴场", "lat": 37.536521, "lng": 121.419581, "position": 3}, {"id": "seed-7-4", "day": 7, "cat": "shop", "time": "12:30", "title": "渔人码头(午餐)", "desc": "烟台山旁欧风码头，海鲜西餐；餐后自驾回威海", "city": "烟台", "name": "渔人码头", "lat": 37.5462, "lng": 121.4083, "position": 4}, {"id": "seed-7-5", "day": 7, "cat": "food", "time": "18:00", "title": "韩乐坊", "desc": "威海韩风夜市；请在 21:00 前完成一嗨还车", "city": "威海", "name": "韩乐坊", "lat": 37.429351, "lng": 122.152957, "position": 5}, {"id": "seed-7-6", "day": 7, "cat": "hotel", "time": "20:30", "title": "威海站住宿·汉庭", "desc": "还车后入住火车站旁(预算约¥150，未订)，便于明早赶车", "city": "威海", "name": "汉庭酒店威海火车站店", "lat": 37.419152, "lng": 122.15158, "position": 6}, {"id": "seed-8-1", "day": 8, "cat": "hotel", "time": "07:30", "title": "威海站住宿·汉庭(出发)", "desc": "早餐后步行/短途前往威海站；早晨时间紧，不做远途景点", "city": "威海", "name": "汉庭酒店威海火车站店", "lat": 37.419152, "lng": 122.15158, "position": 1}, {"id": "seed-8-2", "day": 8, "cat": "transit", "time": "09:19", "title": "威海站发车", "desc": "9:19 硬卧→次日 5:03 武昌，票价约¥577", "city": "威海", "name": "威海站", "lat": 37.426952, "lng": 122.143769, "position": 2}, {"id": "seed-9-1", "day": 9, "cat": "transit", "time": "05:03", "title": "抵达武昌", "desc": "行程结束，平安到家；吃饭门票预算合计约¥1500", "city": "武汉", "name": "武昌站", "lat": 30.528671, "lng": 114.317792, "position": 1}];
+const DAY_META = {"1": {"date": "8月1日", "sub": "济南 · 先入住再游泉城", "count": 8}, "2": {"date": "8月2日", "sub": "济南 · 酒店出发至火车站", "count": 7}, "3": {"date": "8月3日", "sub": "威海 · 取车登岛晚入住", "count": 6}, "4": {"date": "8月4日", "sub": "威海 · 东线海角少回头", "count": 6}, "5": {"date": "8月5日", "sub": "威海→烟台 · 跨城自驾", "count": 6}, "6": {"date": "8月6日", "sub": "烟台 · 养马岛+蓬莱", "count": 5}, "7": {"date": "8月7日", "sub": "烟台→威海 · 还车夜宿站旁", "count": 6}, "8": {"date": "8月8日", "sub": "威海 · 站旁启程", "count": 2}, "9": {"date": "8月9日", "sub": "武汉 · 平安到家", "count": 1}};
 const CATS = {"scenic": {"label": "景点", "color": "#0aa3ff", "soft": "#e6f6ff"}, "food": {"label": "美食", "color": "#ff6b6b", "soft": "#ffecec"}, "culture": {"label": "文化", "color": "#7b61ff", "soft": "#f0ebff"}, "shop": {"label": "购物", "color": "#20c997", "soft": "#e7fbf4"}, "transit": {"label": "交通", "color": "#8898aa", "soft": "#eef1f5"}, "hotel": {"label": "住宿", "color": "#f59e0b", "soft": "#fff4dc"}};
 const BUDGETS = {"交通": 2030, "住宿": 1040, "租车": 937, "吃饭门票": 1500};
 const TOTAL = 5507;
-const HOTELS = {"济南住宿·天桥区": {"addr": "天桥区小清河北路恒大滨河左岸D9公寓1号楼119号商铺", "price": "¥138", "status": "已预订"}, "威海住宿·山大路": {"addr": "环翠区高技术产业开发区山大路15-6号(建设银行旁，山大南门对面)", "price": "¥352/2晚", "status": "已预订"}, "威海住宿·山大路(继续住)": {"addr": "山大路15-6号", "price": "—", "status": "续住"}, "烟台住宿·金海湾": {"addr": "烟台山旁海景(芝罘区)", "price": "约¥400/晚", "status": "推荐·未订"}, "烟台住宿·金海湾(继续住)": {"addr": "烟台山旁海景", "price": "—", "status": "续住"}, "威海站住宿·汉庭": {"addr": "汉庭酒店威海火车站店", "price": "约¥150/晚", "status": "推荐·未订"}};
+const HOTELS = {"济南住宿·天桥区": {"addr": "天桥区小清河北路恒大滨河左岸D9公寓1号楼119号商铺", "price": "¥138", "status": "已预订"}, "济南住宿·天桥区(回宿)": {"addr": "天桥区小清河北路恒大滨河左岸D9公寓1号楼119号商铺", "price": "—", "status": "回宿"}, "济南住宿·天桥区(出发)": {"addr": "天桥区小清河北路恒大滨河左岸D9公寓1号楼119号商铺", "price": "—", "status": "退房出发"}, "威海住宿·山大路": {"addr": "环翠区高技术产业开发区山大路15-6号(建设银行旁，山大南门对面)", "price": "¥352/2晚", "status": "已预订"}, "威海住宿·山大路(出发)": {"addr": "山大路15-6号", "price": "—", "status": "酒店出发"}, "威海住宿·山大路(回宿)": {"addr": "山大路15-6号", "price": "—", "status": "回宿"}, "威海住宿·山大路(退房)": {"addr": "山大路15-6号", "price": "—", "status": "退房"}, "烟台住宿·金海湾": {"addr": "烟台山旁海景(芝罘区)", "price": "约¥400/晚", "status": "推荐·未订"}, "烟台住宿·金海湾(出发)": {"addr": "烟台山旁海景", "price": "—", "status": "酒店出发"}, "烟台住宿·金海湾(回宿)": {"addr": "烟台山旁海景", "price": "—", "status": "回宿"}, "烟台住宿·金海湾(退房)": {"addr": "烟台山旁海景", "price": "—", "status": "退房"}, "威海站住宿·汉庭": {"addr": "汉庭酒店威海火车站店", "price": "约¥150/晚", "status": "推荐·未订"}, "威海站住宿·汉庭(出发)": {"addr": "汉庭酒店威海火车站店", "price": "—", "status": "赶车出发"}};
 const DAYS = Object.keys(DAY_META).map(Number).sort(function(a,b){return a-b});
 const STORAGE_KEY = 'itinerary-editor-state-v1';
 
@@ -447,6 +500,66 @@ document.getElementById('importInput').addEventListener('change', function(e){
   e.target.value = '';
 });
 document.getElementById('resetBtn').addEventListener('click', resetToBase);
+
+function closeActionsMenu() {
+  const menu = document.getElementById('actionsMenu');
+  const more = document.getElementById('moreBtn');
+  menu.classList.remove('open');
+  more.setAttribute('aria-expanded', 'false');
+}
+document.getElementById('moreBtn').addEventListener('click', function(e){
+  e.stopPropagation();
+  const menu = document.getElementById('actionsMenu');
+  const open = !menu.classList.contains('open');
+  menu.classList.toggle('open', open);
+  document.getElementById('moreBtn').setAttribute('aria-expanded', open ? 'true' : 'false');
+});
+document.getElementById('exportBtnMobile').addEventListener('click', function(){
+  closeActionsMenu();
+  exportJson();
+});
+document.getElementById('importBtnMobile').addEventListener('click', function(){
+  closeActionsMenu();
+  document.getElementById('importInput').click();
+});
+document.getElementById('resetBtnMobile').addEventListener('click', function(){
+  closeActionsMenu();
+  resetToBase();
+});
+document.addEventListener('click', function(){ closeActionsMenu(); });
+
+function isMobileLayout() {
+  return window.matchMedia('(max-width: 900px)').matches;
+}
+
+function setMobileView(mode) {
+  const layout = document.getElementById('mainLayout');
+  const listBtn = document.getElementById('viewListBtn');
+  const mapBtn = document.getElementById('viewMapBtn');
+  const showMap = mode === 'map';
+  layout.classList.toggle('mobile-map', showMap);
+  layout.classList.toggle('mobile-list', !showMap);
+  listBtn.classList.toggle('active', !showMap);
+  mapBtn.classList.toggle('active', showMap);
+  listBtn.setAttribute('aria-selected', !showMap ? 'true' : 'false');
+  mapBtn.setAttribute('aria-selected', showMap ? 'true' : 'false');
+  if (showMap && curDay !== null) {
+    const list = POIS.filter(function(p){ return p.day === curDay; })
+      .sort(function(a,b){ return a.time.localeCompare(b.time); });
+    if (isMapAvailable()) {
+      try { if (map && map.resize) map.resize(); } catch (_) {}
+      scheduleFitMapToPoints(list);
+    }
+  }
+}
+document.getElementById('viewListBtn').addEventListener('click', function(){ setMobileView('list'); });
+document.getElementById('viewMapBtn').addEventListener('click', function(){ setMobileView('map'); });
+window.addEventListener('resize', function(){
+  if (!isMobileLayout()) {
+    document.getElementById('mainLayout').classList.add('mobile-list');
+    document.getElementById('mainLayout').classList.remove('mobile-map');
+  }
+});
 
 document.getElementById('legend').innerHTML = Object.keys(CATS).map(function(k){
   const c = CATS[k];
@@ -878,6 +991,7 @@ function flyTo(d, num){
   Array.prototype.forEach.call(document.querySelectorAll('.card'), function(el){
     el.classList.toggle('active', el.dataset.id === p.id);
   });
+  if (isMobileLayout()) setMobileView('map');
   if (!isMapAvailable()) return;
   map.setCenter(new TMap.LatLng(p.lat, p.lng));
   map.setZoom(15);

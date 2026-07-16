@@ -15,23 +15,30 @@ total = sum(budgets.values())
 # 住宿细分（右侧住宿卡片展示）
 hotel_meta = {
     "济南住宿·天桥区": {"addr": "天桥区小清河北路恒大滨河左岸D9公寓1号楼119号商铺", "price": "¥138", "status": "已预订"},
+    "济南住宿·天桥区(回宿)": {"addr": "天桥区小清河北路恒大滨河左岸D9公寓1号楼119号商铺", "price": "—", "status": "回宿"},
+    "济南住宿·天桥区(出发)": {"addr": "天桥区小清河北路恒大滨河左岸D9公寓1号楼119号商铺", "price": "—", "status": "退房出发"},
     "威海住宿·山大路": {"addr": "环翠区高技术产业开发区山大路15-6号(建设银行旁，山大南门对面)", "price": "¥352/2晚", "status": "已预订"},
-    "威海住宿·山大路(继续住)": {"addr": "山大路15-6号", "price": "—", "status": "续住"},
+    "威海住宿·山大路(出发)": {"addr": "山大路15-6号", "price": "—", "status": "酒店出发"},
+    "威海住宿·山大路(回宿)": {"addr": "山大路15-6号", "price": "—", "status": "回宿"},
+    "威海住宿·山大路(退房)": {"addr": "山大路15-6号", "price": "—", "status": "退房"},
     "烟台住宿·金海湾": {"addr": "烟台山旁海景(芝罘区)", "price": "约¥400/晚", "status": "推荐·未订"},
-    "烟台住宿·金海湾(继续住)": {"addr": "烟台山旁海景", "price": "—", "status": "续住"},
+    "烟台住宿·金海湾(出发)": {"addr": "烟台山旁海景", "price": "—", "status": "酒店出发"},
+    "烟台住宿·金海湾(回宿)": {"addr": "烟台山旁海景", "price": "—", "status": "回宿"},
+    "烟台住宿·金海湾(退房)": {"addr": "烟台山旁海景", "price": "—", "status": "退房"},
     "威海站住宿·汉庭": {"addr": "汉庭酒店威海火车站店", "price": "约¥150/晚", "status": "推荐·未订"},
+    "威海站住宿·汉庭(出发)": {"addr": "汉庭酒店威海火车站店", "price": "—", "status": "赶车出发"},
 }
 hotels_js = json.dumps(hotel_meta, ensure_ascii=False)
 
 day_meta = {
-    1: ("8月1日", "济南 · 初见泉城"),
-    2: ("8月2日", "济南 · 山湖与博物馆"),
-    3: ("8月3日", "威海 · 抵岸登岛"),
-    4: ("8月4日", "威海 · 海角天涯"),
+    1: ("8月1日", "济南 · 先入住再游泉城"),
+    2: ("8月2日", "济南 · 酒店出发至火车站"),
+    3: ("8月3日", "威海 · 取车登岛晚入住"),
+    4: ("8月4日", "威海 · 东线海角少回头"),
     5: ("8月5日", "威海→烟台 · 跨城自驾"),
-    6: ("8月6日", "烟台 · 蓬莱仙境"),
-    7: ("8月7日", "烟台→威海 · 归途夜市"),
-    8: ("8月8日", "威海 · 收官启程"),
+    6: ("8月6日", "烟台 · 养马岛+蓬莱"),
+    7: ("8月7日", "烟台→威海 · 还车夜宿站旁"),
+    8: ("8月8日", "威海 · 站旁启程"),
     9: ("8月9日", "武汉 · 平安到家"),
 }
 days = sorted(day_meta.keys())
@@ -167,10 +174,53 @@ body{
 .place-result{border:1px solid var(--line);border-radius:8px;background:#fff;padding:9px;text-align:left;cursor:pointer}
 .place-result small{display:block;color:var(--muted);margin-top:3px}
 .editor-message{min-height:20px;color:#c33;font-size:12px;margin-top:10px}
+.mobile-bar{display:none}
+.mobile-more{display:none}
+.actions-menu{display:none}
 @media (max-width:900px){
-  .layout{grid-template-columns:1fr; grid-template-rows:50% 50%}
-  .map-wrap{border-left:none; border-top:1px solid var(--line)}
-  .banner h1{font-size:22px}
+  .banner{padding:14px 14px 12px}
+  .banner-inner{gap:10px; align-items:flex-start}
+  .banner h1{font-size:18px; letter-spacing:0; text-align:left}
+  .banner .sub{text-align:left; letter-spacing:1px; font-size:11px}
+  .badges{width:100%; justify-content:space-between}
+  .badge{min-width:0; flex:1; padding:8px 6px}
+  .badge .v{font-size:16px}
+  .badge .l{font-size:10px; letter-spacing:0}
+  .actions{width:100%; justify-content:flex-start; gap:6px}
+  .actions .action-btn.desktop-only{display:none}
+  .mobile-more{display:inline-flex}
+  .actions-menu{position:absolute; right:14px; top:100%; z-index:30; margin-top:6px;
+    background:#fff; color:var(--ink); border:1px solid var(--line); border-radius:12px;
+    box-shadow:var(--shadow); min-width:160px; padding:6px; display:none}
+  .actions-menu.open{display:grid}
+  .actions-menu button{border:0; background:transparent; text-align:left; padding:10px 12px;
+    border-radius:8px; font:inherit; font-size:13px; color:var(--ink); cursor:pointer}
+  .actions-menu button:hover{background:var(--bg1)}
+  .actions{position:relative}
+  .tabs{padding:8px 12px; gap:6px; -webkit-overflow-scrolling:touch}
+  .tab{padding:7px 12px; font-size:13px}
+  .mobile-bar{display:flex; gap:8px; padding:8px 12px; flex:0 0 auto;
+    background:#fff; border-bottom:1px solid var(--line)}
+  .mobile-bar button{flex:1; border:1px solid var(--line); background:#fff; color:var(--sub);
+    border-radius:10px; padding:10px 12px; font:inherit; font-size:14px; font-weight:700; cursor:pointer}
+  .mobile-bar button.active{background:linear-gradient(120deg,#635bff,#0aa3ff); color:#fff; border-color:transparent}
+  .layout{grid-template-columns:1fr; grid-template-rows:1fr}
+  .layout.mobile-map .timeline{display:none}
+  .layout.mobile-list .map-wrap{display:none}
+  .layout.mobile-map .map-wrap,
+  .layout.mobile-list .timeline{display:block; min-height:0; height:100%}
+  .map-wrap{border-left:none}
+  .timeline{padding:14px 12px 80px}
+  .card{padding:11px 12px; padding-right:40px}
+  .card .edit-btn{right:12px; top:40px}
+  .card .time{flex:0 0 44px; font-size:12px}
+  .day-head .d{font-size:18px}
+  .point-editor{width:100%; padding:18px 14px calc(18px + env(safe-area-inset-bottom,0px))}
+}
+@media (min-width:901px){
+  .mobile-bar{display:none !important}
+  .layout.mobile-map .timeline,
+  .layout.mobile-list .map-wrap{display:revert}
 }
 </style>
 </head>
@@ -183,9 +233,15 @@ body{
     </div>
     <div class="actions">
       <button class="action-btn" id="addPointBtn" type="button">添加点</button>
-      <button class="action-btn" id="exportBtn" type="button">导出 JSON</button>
-      <button class="action-btn" id="importBtn" type="button">导入 JSON</button>
-      <button class="action-btn" id="resetBtn" type="button">恢复初始行程</button>
+      <button class="action-btn desktop-only" id="exportBtn" type="button">导出 JSON</button>
+      <button class="action-btn desktop-only" id="importBtn" type="button">导入 JSON</button>
+      <button class="action-btn desktop-only" id="resetBtn" type="button">恢复初始行程</button>
+      <button class="action-btn mobile-more" id="moreBtn" type="button" aria-expanded="false" aria-controls="actionsMenu">更多</button>
+      <div class="actions-menu" id="actionsMenu" role="menu">
+        <button type="button" id="exportBtnMobile" role="menuitem">导出 JSON</button>
+        <button type="button" id="importBtnMobile" role="menuitem">导入 JSON</button>
+        <button type="button" id="resetBtnMobile" role="menuitem">恢复初始行程</button>
+      </div>
       <input id="importInput" type="file" accept=".json,application/json" hidden>
       <div id="saveStatus" class="save-status" role="status" aria-live="polite"></div>
     </div>
@@ -197,7 +253,11 @@ body{
   </div>
 </header>
 <nav class="tabs" id="tabs"></nav>
-<main class="layout">
+<div class="mobile-bar" id="mobileBar" role="tablist" aria-label="手机视图切换">
+  <button type="button" id="viewListBtn" class="active" role="tab" aria-selected="true">行程</button>
+  <button type="button" id="viewMapBtn" role="tab" aria-selected="false">地图</button>
+</div>
+<main class="layout mobile-list" id="mainLayout">
   <section class="timeline" id="timeline">
     <div style="color:var(--muted);padding:40px;text-align:center">加载中…</div>
   </section>
@@ -403,6 +463,66 @@ document.getElementById('importInput').addEventListener('change', function(e){
   e.target.value = '';
 });
 document.getElementById('resetBtn').addEventListener('click', resetToBase);
+
+function closeActionsMenu() {
+  const menu = document.getElementById('actionsMenu');
+  const more = document.getElementById('moreBtn');
+  menu.classList.remove('open');
+  more.setAttribute('aria-expanded', 'false');
+}
+document.getElementById('moreBtn').addEventListener('click', function(e){
+  e.stopPropagation();
+  const menu = document.getElementById('actionsMenu');
+  const open = !menu.classList.contains('open');
+  menu.classList.toggle('open', open);
+  document.getElementById('moreBtn').setAttribute('aria-expanded', open ? 'true' : 'false');
+});
+document.getElementById('exportBtnMobile').addEventListener('click', function(){
+  closeActionsMenu();
+  exportJson();
+});
+document.getElementById('importBtnMobile').addEventListener('click', function(){
+  closeActionsMenu();
+  document.getElementById('importInput').click();
+});
+document.getElementById('resetBtnMobile').addEventListener('click', function(){
+  closeActionsMenu();
+  resetToBase();
+});
+document.addEventListener('click', function(){ closeActionsMenu(); });
+
+function isMobileLayout() {
+  return window.matchMedia('(max-width: 900px)').matches;
+}
+
+function setMobileView(mode) {
+  const layout = document.getElementById('mainLayout');
+  const listBtn = document.getElementById('viewListBtn');
+  const mapBtn = document.getElementById('viewMapBtn');
+  const showMap = mode === 'map';
+  layout.classList.toggle('mobile-map', showMap);
+  layout.classList.toggle('mobile-list', !showMap);
+  listBtn.classList.toggle('active', !showMap);
+  mapBtn.classList.toggle('active', showMap);
+  listBtn.setAttribute('aria-selected', !showMap ? 'true' : 'false');
+  mapBtn.setAttribute('aria-selected', showMap ? 'true' : 'false');
+  if (showMap && curDay !== null) {
+    const list = POIS.filter(function(p){ return p.day === curDay; })
+      .sort(function(a,b){ return a.time.localeCompare(b.time); });
+    if (isMapAvailable()) {
+      try { if (map && map.resize) map.resize(); } catch (_) {}
+      scheduleFitMapToPoints(list);
+    }
+  }
+}
+document.getElementById('viewListBtn').addEventListener('click', function(){ setMobileView('list'); });
+document.getElementById('viewMapBtn').addEventListener('click', function(){ setMobileView('map'); });
+window.addEventListener('resize', function(){
+  if (!isMobileLayout()) {
+    document.getElementById('mainLayout').classList.add('mobile-list');
+    document.getElementById('mainLayout').classList.remove('mobile-map');
+  }
+});
 
 document.getElementById('legend').innerHTML = Object.keys(CATS).map(function(k){
   const c = CATS[k];
@@ -834,6 +954,7 @@ function flyTo(d, num){
   Array.prototype.forEach.call(document.querySelectorAll('.card'), function(el){
     el.classList.toggle('active', el.dataset.id === p.id);
   });
+  if (isMobileLayout()) setMobileView('map');
   if (!isMapAvailable()) return;
   map.setCenter(new TMap.LatLng(p.lat, p.lng));
   map.setZoom(15);

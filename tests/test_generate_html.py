@@ -282,6 +282,27 @@ class GeneratedHtmlTest(unittest.TestCase):
         self.assertIn("escapeHtml(e && e.message || e)", catch_block)
         self.assertNotIn(" + e.message", catch_block)
 
+    def test_mobile_layout_uses_list_map_toggle(self):
+        self.assertIn('id="mobileBar"', self.html)
+        self.assertIn('id="viewListBtn"', self.html)
+        self.assertIn('id="viewMapBtn"', self.html)
+        self.assertIn("function setMobileView(mode)", self.html)
+        self.assertIn("mobile-list", self.html)
+        self.assertIn("mobile-map", self.html)
+        self.assertIn(".layout.mobile-map .timeline{display:none}", self.html)
+        self.assertIn('id="moreBtn"', self.html)
+
+    def test_optimized_itinerary_hotel_and_route_rules(self):
+        self.assertIn('"title": "济南住宿·天桥区"', self.html)
+        self.assertIn('"title": "济南住宿·天桥区(回宿)"', self.html)
+        self.assertIn('"title": "济南住宿·天桥区(出发)"', self.html)
+        self.assertIn('"title": "威海住宿·山大路(出发)"', self.html)
+        self.assertIn("养马岛", self.html)
+        self.assertIn("那香海", self.html)
+        self.assertIn("成山头", self.html)
+        self.assertNotIn("火炬八街", self.html)
+        self.assertNotIn("威海住宿·山大路(继续住)", self.html)
+
 
 if __name__ == "__main__":
     unittest.main()
