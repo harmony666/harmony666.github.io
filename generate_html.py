@@ -808,6 +808,92 @@ function polylineStyle() {
   });
 }
 
+function straightSegment(from, to) {
+  return [
+    new TMap.LatLng(Number(from.lat), Number(from.lng)),
+    new TMap.LatLng(Number(to.lat), Number(to.lng))
+  ];
+}
+
+function pointsRouteKey(list) {
+  return list.map(function(p) {
+    return String(p.id) + ':' + Number(p.lat).toFixed(6) + ',' + Number(p.lng).toFixed(6);
+  }).join('|');
+}
+
+function toLatLngPoint(pt) {
+  if (!pt) return null;
+  if (typeof pt.getLat === 'function' && typeof pt.getLng === 'function') {
+    return new TMap.LatLng(pt.getLat(), pt.getLng());
+  }
+  if (Number.isFinite(Number(pt.lat)) && Number.isFinite(Number(pt.lng))) {
+    return new TMap.LatLng(Number(pt.lat), Number(pt.lng));
+  }
+  return null;
+}
+
+function extractDrivingPolyline(result) {
+  if (!result) return null;
+  const routes = (result.result && result.result.routes) || result.routes || [];
+  const route = routes[0];
+  if (!route || !route.polyline) return null;
+  const raw = route.polyline;
+  if (!Array.isArray(raw) || raw.length < 2) return null;
+  if (typeof raw[0] === 'number') return null;
+  const path = [];
+  for (let i = 0; i < raw.length; i++) {
+    const pt = toLatLngPoint(raw[i]);
+    if (pt) path.push(pt);
+  }
+  return path.length >= 2 ? path : null;
+}
+
+const drivingRouteCache = Object.create(null);
+let routeRequestSeq = 0;
+
+async function fetchDrivingSegment(from, to) {
+  const span = Math.abs(Number(from.lat) - Number(to.lat))
+    + Math.abs(Number(from.lng) - Number(to.lng));
+  if (span < 0.0002) return straightSegment(from, to);
+  if (typeof TMap === 'undefined' || !TMap.service || !TMap.service.Driving) {
+    return straightSegment(from, to);
+  }
+  try {
+    const driving = new TMap.service.Driving({ policy: 'LEAST_TIME' });
+    const result = await driving.search({
+      from: new TMap.LatLng(Number(from.lat), Number(from.lng)),
+      to: new TMap.LatLng(Number(to.lat), Number(to.lng))
+    });
+    const path = extractDrivingPolyline(result);
+    if (path) return path;
+  } catch (_) {}
+  return straightSegment(from, to);
+}
+
+async function buildDrivingRoutePath(list) {
+  if (!list || list.length < 2) return [];
+  const key = pointsRouteKey(list);
+  if (drivingRouteCache[key]) return drivingRouteCache[key].slice();
+  const path = [];
+  for (let i = 0; i < list.length - 1; i++) {
+    const seg = await fetchDrivingSegment(list[i], list[i + 1]);
+    for (let j = 0; j < seg.length; j++) {
+      if (i > 0 && j === 0) continue;
+      path.push(seg[j]);
+    }
+  }
+  drivingRouteCache[key] = path.slice();
+  return path;
+}
+
+function setMapRouteTitle(d, list, suffix) {
+  const meta = DAY_META[d];
+  document.getElementById('mapTitle').innerHTML = meta.date
+    + '<small>' + meta.sub + ' · ' + list.length + '点'
+    + (suffix ? ' · ' + suffix : '')
+    + '</small>';
+}
+
 function fitMapToPoints(list) {
   if (!isMapAvailable() || !list || list.length === 0) return;
   const lats = list.map(function(p){ return Number(p.lat); });
@@ -914,8 +1000,7 @@ function renderMap(d, list){
     showMapUnavailable('地图脚本或初始化失败；时间轴与数据功能仍可使用');
     return;
   }
-  const meta = DAY_META[d];
-  document.getElementById('mapTitle').innerHTML = meta.date + '<small>'+meta.sub+' · '+list.length+'点</small>';
+  setMapRouteTitle(d, list, '');
 
   const geoms = list.map(function(p){
     return {
@@ -925,16 +1010,16 @@ function renderMap(d, list){
       properties: p
     };
   });
-  const polyPaths = list.map(function(p){ return new TMap.LatLng(p.lat, p.lng); });
+  const straightPaths = list.map(function(p){ return new TMap.LatLng(p.lat, p.lng); });
+  const requestId = ++routeRequestSeq;
 
-  // 渲染覆盖物（marker + polyline），setGeometries 内部清空旧的再加新的
   try {
     if (!multiMarker || !multiPoly) throw new Error('覆盖物未初始化');
     multiMarker.setStyles(markerStyles(list));
     multiMarker.setGeometries(geoms);
     multiPoly.setGeometries(list.length >= 2 ? [{
       id: 'route_' + d,
-      paths: polyPaths,
+      paths: straightPaths,
       styleId: 'route'
     }] : []);
   } catch(e){
@@ -945,6 +1030,24 @@ function renderMap(d, list){
 
   if (infoWin) { infoWin.close(); infoWin = null; }
   scheduleFitMapToPoints(list);
+  if (list.length < 2) return;
+
+  setMapRouteTitle(d, list, '路线计算中…');
+  buildDrivingRoutePath(list).then(function(path) {
+    if (requestId !== routeRequestSeq || curDay !== d || !isMapAvailable()) return;
+    if (path && path.length >= 2) {
+      multiPoly.setGeometries([{
+        id: 'route_' + d,
+        paths: path,
+        styleId: 'route'
+      }]);
+      scheduleFitMapToPoints(list);
+    }
+    setMapRouteTitle(d, list, '驾车路线');
+  }).catch(function() {
+    if (requestId !== routeRequestSeq || curDay !== d) return;
+    setMapRouteTitle(d, list, '直线备用');
+  });
 }
 
 function selectDay(d){

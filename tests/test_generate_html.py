@@ -28,6 +28,15 @@ class GeneratedHtmlTest(unittest.TestCase):
         self.assertIn("showArrow: true", self.html)
         self.assertIn("arrowOptions: { width: 8, height: 5, space: 60 }", self.html)
 
+    def test_map_uses_driving_routes_with_straight_fallback(self):
+        self.assertIn("TMap.service.Driving", self.html)
+        self.assertIn("function buildDrivingRoutePath(list)", self.html)
+        self.assertIn("function fetchDrivingSegment(from, to)", self.html)
+        self.assertIn("buildDrivingRoutePath(list)", self.html)
+        self.assertIn("straightSegment", self.html)
+        self.assertIn("路线计算中", self.html)
+        self.assertIn("驾车路线", self.html)
+
     def test_day_switch_fits_map_to_current_points(self):
         self.assertIn("function fitMapToPoints(list)", self.html)
         self.assertIn("function scheduleFitMapToPoints(list)", self.html)
