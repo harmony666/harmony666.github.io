@@ -131,11 +131,19 @@ body{
   .mobile-bar button{flex:1; border:1px solid var(--line); background:#fff; color:var(--sub);
     border-radius:10px; padding:10px 12px; font:inherit; font-size:14px; font-weight:700; cursor:pointer}
   .mobile-bar button.active{background:linear-gradient(120deg,#635bff,#0aa3ff); color:#fff; border-color:transparent}
-  .layout{grid-template-columns:1fr; grid-template-rows:1fr}
+  .layout{position:relative; grid-template-columns:1fr; grid-template-rows:1fr}
+  /* 不可对地图容器用 display:none，否则 init 时宽高为 0 会报 far <= 0 */
+  .layout.mobile-list .map-wrap{
+    position:absolute; inset:0; visibility:hidden; pointer-events:none; z-index:0;
+  }
+  .layout.mobile-list .timeline{
+    position:relative; z-index:1; min-height:0; height:100%;
+  }
   .layout.mobile-map .timeline{display:none}
-  .layout.mobile-list .map-wrap{display:none}
-  .layout.mobile-map .map-wrap,
-  .layout.mobile-list .timeline{display:block; min-height:0; height:100%}
+  .layout.mobile-map .map-wrap{
+    position:relative; visibility:visible; pointer-events:auto;
+    min-height:0; height:100%;
+  }
   .map-wrap{border-left:none}
   .timeline{padding:14px 12px 80px}
   .card{padding:11px 12px; padding-right:40px}
@@ -146,8 +154,11 @@ body{
 }
 @media (min-width:901px){
   .mobile-bar{display:none !important}
-  .layout.mobile-map .timeline,
-  .layout.mobile-list .map-wrap{display:revert}
+  .layout.mobile-list .map-wrap,
+  .layout.mobile-map .map-wrap{
+    position:relative; inset:auto; visibility:visible; pointer-events:auto; z-index:auto;
+  }
+  .layout.mobile-map .timeline{display:block}
 }
 </style>
 </head>
@@ -543,14 +554,14 @@ function setMobileView(mode) {
   mapBtn.classList.toggle('active', showMap);
   listBtn.setAttribute('aria-selected', !showMap ? 'true' : 'false');
   mapBtn.setAttribute('aria-selected', showMap ? 'true' : 'false');
-  if (showMap && curDay !== null) {
-    const list = POIS.filter(function(p){ return p.day === curDay; })
-      .sort(function(a,b){ return a.time.localeCompare(b.time); });
-    if (isMapAvailable()) {
-      try { if (map && map.resize) map.resize(); } catch (_) {}
-      scheduleFitMapToPoints(list);
-    }
-  }
+  if (!showMap || curDay === null) return;
+  const list = POIS.filter(function(p){ return p.day === curDay; })
+    .sort(function(a,b){ return a.time.localeCompare(b.time); });
+  requestAnimationFrame(function() {
+    if (!isMapAvailable()) return;
+    try { if (map && map.resize) map.resize(); } catch (_) {}
+    renderMap(curDay, list);
+  });
 }
 document.getElementById('viewListBtn').addEventListener('click', function(){ setMobileView('list'); });
 document.getElementById('viewMapBtn').addEventListener('click', function(){ setMobileView('map'); });

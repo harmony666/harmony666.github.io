@@ -289,7 +289,9 @@ class GeneratedHtmlTest(unittest.TestCase):
         self.assertIn("function setMobileView(mode)", self.html)
         self.assertIn("mobile-list", self.html)
         self.assertIn("mobile-map", self.html)
-        self.assertIn(".layout.mobile-map .timeline{display:none}", self.html)
+        self.assertIn("visibility:hidden", self.html)
+        self.assertIn("不可对地图容器用 display:none", self.html)
+        self.assertNotIn(".layout.mobile-list .map-wrap{display:none}", self.html)
         self.assertIn('id="moreBtn"', self.html)
 
     def test_optimized_itinerary_hotel_and_route_rules(self):
