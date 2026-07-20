@@ -9,35 +9,53 @@ KEY = "B6VBZ-V75KG-HBEQP-IRLIB-ANBLZ-W6BD5"
 data = json.loads((ROOT / "coords.json").read_text(encoding="utf-8"))
 core_js = (ROOT / "src" / "itinerary-core.js").read_text(encoding="utf-8")
 
-budgets = {"交通": 1117+336+577, "住宿": 138+352+400+150, "租车": 937, "吃饭门票": 1500}
-total = sum(budgets.values())
+budgets = {
+    "交通": 1117 + 346 + 577,
+    "住宿": 370 + 601.65 + 108,
+    "租车": 1126,
+    "吃饭门票": 1500,
+}
+total = round(sum(budgets.values()), 2)
 
 # 住宿细分（右侧住宿卡片展示）
 hotel_meta = {
-    "济南住宿·天桥区": {"addr": "天桥区小清河北路恒大滨河左岸D9公寓1号楼119号商铺", "price": "¥138", "status": "已预订"},
-    "济南住宿·天桥区(回宿)": {"addr": "天桥区小清河北路恒大滨河左岸D9公寓1号楼119号商铺", "price": "—", "status": "回宿"},
-    "济南住宿·天桥区(出发)": {"addr": "天桥区小清河北路恒大滨河左岸D9公寓1号楼119号商铺", "price": "—", "status": "退房出发"},
-    "威海住宿·山大路": {"addr": "环翠区高技术产业开发区山大路15-6号(建设银行旁，山大南门对面)", "price": "¥352/2晚", "status": "已预订"},
+    "威海住宿·山大路": {
+        "addr": "环翠区高技术产业开发区山大路15-6号(建设银行旁，山大南门对面)",
+        "price": "¥370/2晚",
+        "status": "已预订",
+    },
     "威海住宿·山大路(出发)": {"addr": "山大路15-6号", "price": "—", "status": "酒店出发"},
     "威海住宿·山大路(回宿)": {"addr": "山大路15-6号", "price": "—", "status": "回宿"},
     "威海住宿·山大路(退房)": {"addr": "山大路15-6号", "price": "—", "status": "退房"},
-    "烟台住宿·金海湾": {"addr": "烟台山旁海景(芝罘区)", "price": "约¥400/晚", "status": "推荐·未订"},
-    "烟台住宿·金海湾(出发)": {"addr": "烟台山旁海景", "price": "—", "status": "酒店出发"},
-    "烟台住宿·金海湾(回宿)": {"addr": "烟台山旁海景", "price": "—", "status": "回宿"},
-    "烟台住宿·金海湾(退房)": {"addr": "烟台山旁海景", "price": "—", "status": "退房"},
-    "威海站住宿·汉庭": {"addr": "汉庭酒店威海火车站店", "price": "约¥150/晚", "status": "推荐·未订"},
-    "威海站住宿·汉庭(出发)": {"addr": "汉庭酒店威海火车站店", "price": "—", "status": "赶车出发"},
+    "烟台住宿·青年南路": {
+        "addr": "烟台市芝罘区世回尧街道青年南路169号",
+        "price": "¥601.65/3晚",
+        "status": "已预订",
+    },
+    "烟台住宿·青年南路(出发)": {"addr": "青年南路169号", "price": "—", "status": "酒店出发"},
+    "烟台住宿·青年南路(回宿)": {"addr": "青年南路169号", "price": "—", "status": "回宿"},
+    "烟台住宿·青年南路(退房)": {"addr": "青年南路169号", "price": "—", "status": "退房"},
+    "威海住宿·时代小驿": {
+        "addr": "时代小驿民宿(馨海家苑)",
+        "price": "¥108",
+        "status": "已预订",
+    },
+    "威海住宿·时代小驿(出发)": {
+        "addr": "时代小驿民宿(馨海家苑)",
+        "price": "—",
+        "status": "赶车出发",
+    },
 }
 hotels_js = json.dumps(hotel_meta, ensure_ascii=False)
 
 day_meta = {
-    1: ("8月1日", "济南 · 先入住再游泉城"),
-    2: ("8月2日", "济南 · 酒店出发至火车站"),
-    3: ("8月3日", "威海 · 取车登岛晚入住"),
-    4: ("8月4日", "威海 · 东线海角少回头"),
-    5: ("8月5日", "威海→烟台 · 跨城自驾"),
+    1: ("8月1日", "济南 · 一日泉城夜赶火车"),
+    2: ("8月2日", "威海 · 到站取车登岛入住"),
+    3: ("8月3日", "威海 · 东线海角少回头"),
+    4: ("8月4日", "威海→烟台 · 跨城入住"),
+    5: ("8月5日", "烟台 · 酒博海滨夜生活"),
     6: ("8月6日", "烟台 · 养马岛+蓬莱"),
-    7: ("8月7日", "烟台→威海 · 还车夜宿站旁"),
+    7: ("8月7日", "烟台→威海 · 还车夜宿"),
     8: ("8月8日", "威海 · 站旁启程"),
     9: ("8月9日", "武汉 · 平安到家"),
 }
@@ -462,7 +480,10 @@ let POIS = loadState();
 
 document.getElementById('bDays').textContent = DAYS.length;
 document.getElementById('bPoi').textContent = POIS.length;
-document.getElementById('bCost').textContent = '¥' + Number(TOTAL).toLocaleString();
+document.getElementById('bCost').textContent = '¥' + Number(TOTAL).toLocaleString('zh-CN', {
+  minimumFractionDigits: Number(TOTAL) % 1 ? 2 : 0,
+  maximumFractionDigits: 2
+});
 document.getElementById('addPointBtn').addEventListener('click', openPointEditor);
 document.getElementById('exportBtn').addEventListener('click', exportJson);
 document.getElementById('importBtn').addEventListener('click', function(){

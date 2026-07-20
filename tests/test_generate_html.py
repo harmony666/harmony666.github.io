@@ -304,15 +304,19 @@ class GeneratedHtmlTest(unittest.TestCase):
         self.assertIn('id="moreBtn"', self.html)
 
     def test_optimized_itinerary_hotel_and_route_rules(self):
-        self.assertIn('"title": "济南住宿·天桥区"', self.html)
-        self.assertIn('"title": "济南住宿·天桥区(回宿)"', self.html)
-        self.assertIn('"title": "济南住宿·天桥区(出发)"', self.html)
+        self.assertIn('"title": "济南站候车出发"', self.html)
         self.assertIn('"title": "威海住宿·山大路(出发)"', self.html)
+        self.assertIn('"title": "烟台住宿·青年南路"', self.html)
+        self.assertIn('"title": "威海住宿·时代小驿"', self.html)
         self.assertIn("养马岛", self.html)
         self.assertIn("那香海", self.html)
         self.assertIn("成山头", self.html)
+        self.assertIn("5745.65", self.html)
         self.assertNotIn("火炬八街", self.html)
-        self.assertNotIn("威海住宿·山大路(继续住)", self.html)
+        self.assertNotIn("济南住宿·天桥区", self.html)
+        self.assertNotIn("千佛山", self.html)
+        self.assertNotIn("山东省博物馆", self.html)
+        self.assertNotIn("洪家楼", self.html)
 
 
 if __name__ == "__main__":
