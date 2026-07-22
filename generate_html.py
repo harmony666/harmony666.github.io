@@ -7,7 +7,7 @@ ROOT = Path(__file__).parent
 
 KEY = "B6VBZ-V75KG-HBEQP-IRLIB-ANBLZ-W6BD5"
 # 部署 Cloudflare Worker 后填入根 URL（无尾斜杠）。留空则纯本地 localStorage 模式。
-API_BASE = "https://itinerary-api.harmony666.workers.dev"
+API_BASE = "http://124.222.108.66:8787"
 data = json.loads((ROOT / "coords.json").read_text(encoding="utf-8"))
 core_js = (ROOT / "src" / "itinerary-core.js").read_text(encoding="utf-8")
 

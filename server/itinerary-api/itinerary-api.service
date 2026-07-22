@@ -1,0 +1,15 @@
+[Unit]
+Description=Itinerary shared API
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/itinerary-api
+EnvironmentFile=/etc/itinerary-api.env
+ExecStart=/usr/bin/node src/server.js
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
