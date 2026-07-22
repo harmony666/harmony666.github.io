@@ -6,6 +6,8 @@ from pathlib import Path
 ROOT = Path(__file__).parent
 
 KEY = "B6VBZ-V75KG-HBEQP-IRLIB-ANBLZ-W6BD5"
+# 部署 Cloudflare Worker 后填入根 URL（无尾斜杠）。留空则纯本地 localStorage 模式。
+API_BASE = "https://itinerary-api.harmony666.workers.dev"
 data = json.loads((ROOT / "coords.json").read_text(encoding="utf-8"))
 core_js = (ROOT / "src" / "itinerary-core.js").read_text(encoding="utf-8")
 
@@ -358,6 +360,11 @@ const TOTAL = __TOTAL__;
 const HOTELS = __HOTELS__;
 const DAYS = Object.keys(DAY_META).map(Number).sort(function(a,b){return a-b});
 const STORAGE_KEY = 'itinerary-editor-state-v1';
+const PASSWORD_KEY = 'itinerary-edit-password';
+const API_BASE = "__API_BASE__";
+let remoteVersion = 1;
+let remoteTitle = '武汉 → 山东 9日旅行计划';
+let pollTimer = null;
 
 function escapeHtml(value) {
   return String(value == null ? '' : value).replace(/[&<>"']/g, function(ch) {
@@ -371,36 +378,184 @@ function setSaveStatus(message, isError) {
   el.style.color = isError ? '#ffe0e0' : '#ffffff';
 }
 
-function loadState() {
-  const base = ItineraryCore.normalizePoints(BASE_POIS.map(function(p){ return Object.assign({}, p); }));
+function cloudEnabled() {
+  return !!(API_BASE && String(API_BASE).trim());
+}
+
+function apiUrl(path) {
+  return String(API_BASE).replace(/\/+$/, '') + path;
+}
+
+function basePoints() {
+  return ItineraryCore.normalizePoints(BASE_POIS.map(function(p){ return Object.assign({}, p); }));
+}
+
+function loadCachedOrBase() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return base;
+    if (!raw) return basePoints();
     const snapshot = JSON.parse(raw);
     if (!snapshot || snapshot.schemaVersion !== 1 || !Array.isArray(snapshot.points)) {
       throw new Error('保存的行程格式无效');
     }
+    if (Number.isInteger(snapshot.version)) remoteVersion = snapshot.version;
+    if (typeof snapshot.title === 'string') remoteTitle = snapshot.title;
     return ItineraryCore.normalizePoints(snapshot.points);
   } catch (e) {
-    setSaveStatus('自动保存读取失败，已使用初始行程', true);
-    return base;
+    setSaveStatus('本地缓存读取失败，已使用初始行程', true);
+    return basePoints();
   }
 }
 
-function saveState(points) {
+function cacheLocal(points, meta) {
   try {
     const normalizedPoints = ItineraryCore.normalizePoints(points);
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       schemaVersion: 1,
       savedAt: new Date().toISOString(),
+      version: meta && meta.version != null ? meta.version : remoteVersion,
+      title: meta && meta.title ? meta.title : remoteTitle,
       points: normalizedPoints
     }));
-    setSaveStatus('已自动保存', false);
     return true;
   } catch (e) {
-    setSaveStatus('自动保存失败，请立即导出 JSON', true);
+    setSaveStatus('本地缓存写入失败，请立即导出 JSON', true);
     return false;
   }
+}
+
+function getEditPassword() {
+  try { return sessionStorage.getItem(PASSWORD_KEY) || ''; } catch (_) { return ''; }
+}
+
+function setEditPassword(value) {
+  try {
+    if (value) sessionStorage.setItem(PASSWORD_KEY, value);
+    else sessionStorage.removeItem(PASSWORD_KEY);
+  } catch (_) {}
+}
+
+function ensureEditPassword() {
+  let pwd = getEditPassword();
+  if (pwd) return pwd;
+  pwd = window.prompt('请输入编辑口令（仅保存在本标签页）');
+  if (pwd == null || !String(pwd).trim()) return '';
+  pwd = String(pwd).trim();
+  setEditPassword(pwd);
+  return pwd;
+}
+
+async function fetchRemoteItinerary() {
+  const res = await fetch(apiUrl('/api/itinerary'), { method: 'GET' });
+  if (!res.ok) throw new Error('拉取失败 HTTP ' + res.status);
+  const doc = await res.json();
+  if (!doc || doc.schemaVersion !== 1 || !Array.isArray(doc.points)) {
+    throw new Error('云端行程格式无效');
+  }
+  return {
+    version: doc.version,
+    title: doc.title || remoteTitle,
+    points: ItineraryCore.normalizePoints(doc.points),
+    updatedAt: doc.updatedAt
+  };
+}
+
+async function pushRemoteItinerary(points, title) {
+  const pwd = ensureEditPassword();
+  if (!pwd) throw new Error('未提供编辑口令');
+  const res = await fetch(apiUrl('/api/itinerary'), {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Edit-Password': pwd
+    },
+    body: JSON.stringify({
+      version: remoteVersion,
+      title: title || remoteTitle,
+      points: points
+    })
+  });
+  if (res.status === 401) {
+    setEditPassword('');
+    throw new Error('口令错误');
+  }
+  if (res.status === 409) {
+    const body = await res.json().catch(function(){ return {}; });
+    throw new Error('版本冲突：云端已被他人更新（version=' + (body.version || '?') + '），请刷新后重试');
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(function(){ return {}; });
+    throw new Error(body.error || ('保存失败 HTTP ' + res.status));
+  }
+  return res.json();
+}
+
+async function resetRemoteItinerary() {
+  const pwd = ensureEditPassword();
+  if (!pwd) throw new Error('未提供编辑口令');
+  const res = await fetch(apiUrl('/api/itinerary/reset'), {
+    method: 'POST',
+    headers: { 'X-Edit-Password': pwd }
+  });
+  if (res.status === 401) {
+    setEditPassword('');
+    throw new Error('口令错误');
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(function(){ return {}; });
+    throw new Error(body.error || ('重置失败 HTTP ' + res.status));
+  }
+  return res.json();
+}
+
+function applyRemoteDoc(doc, statusMsg) {
+  remoteVersion = doc.version;
+  remoteTitle = doc.title || remoteTitle;
+  POIS = doc.points;
+  cacheLocal(POIS, { version: remoteVersion, title: remoteTitle });
+  document.getElementById('bPoi').textContent = POIS.length;
+  if (curDay !== null) selectDay(curDay);
+  if (statusMsg) setSaveStatus(statusMsg, false);
+}
+
+async function persistPoints(points) {
+  const normalized = ItineraryCore.normalizePoints(points);
+  if (!cloudEnabled()) {
+    if (!cacheLocal(normalized)) return false;
+    setSaveStatus('已自动保存（仅本机）', false);
+    return true;
+  }
+  try {
+    const doc = await pushRemoteItinerary(normalized, remoteTitle);
+    remoteVersion = doc.version;
+    remoteTitle = doc.title || remoteTitle;
+    if (!cacheLocal(doc.points, { version: remoteVersion, title: remoteTitle })) return false;
+    setSaveStatus('已同步到云端 v' + remoteVersion, false);
+    return true;
+  } catch (e) {
+    setSaveStatus('云端保存失败：' + (e && e.message || e), true);
+    return false;
+  }
+}
+
+function saveState(points) {
+  // 同步路径仅写本地；云端模式请用 persistPoints
+  if (!cacheLocal(points)) return false;
+  setSaveStatus(cloudEnabled() ? '已写入本地缓存（待云端确认）' : '已自动保存', false);
+  return true;
+}
+
+function startPolling() {
+  if (!cloudEnabled() || pollTimer) return;
+  pollTimer = setInterval(async function() {
+    if (document.getElementById('pointEditor').classList.contains('open')) return;
+    try {
+      const doc = await fetchRemoteItinerary();
+      if (doc.version > remoteVersion) {
+        applyRemoteDoc(doc, '已同步他人更新 v' + doc.version);
+      }
+    } catch (_) {}
+  }, 5000);
 }
 
 function exportJson() {
@@ -431,23 +586,28 @@ function restoreStoredState(raw) {
 
 async function importJson(file) {
   const previous = POIS;
+  const previousVersion = remoteVersion;
   let previousStored;
   let storageMayHaveChanged = false;
   try {
     const text = await file.text();
     const imported = ItineraryCore.parseImport(text);
-    if (!confirm('导入会替换当前行程，是否继续？')) return;
+    const tip = cloudEnabled()
+      ? '导入会替换当前行程并写入云端（所有人可见），是否继续？'
+      : '导入会替换当前行程，是否继续？';
+    if (!confirm(tip)) return;
     previousStored = localStorage.getItem(STORAGE_KEY);
     storageMayHaveChanged = true;
     POIS = imported.points;
-    if (!saveState(POIS)) {
+    if (!(await persistPoints(POIS))) {
       throw new Error('无法保存导入的行程');
     }
     document.getElementById('bPoi').textContent = POIS.length;
     if (curDay !== null) selectDay(curDay);
-    setSaveStatus('JSON 已导入', false);
+    setSaveStatus(cloudEnabled() ? 'JSON 已导入并同步云端' : 'JSON 已导入', false);
   } catch (e) {
     POIS = previous;
+    remoteVersion = previousVersion;
     let rollbackError = null;
     if (storageMayHaveChanged) {
       try { restoreStoredState(previousStored); } catch (restoreError) { rollbackError = restoreError; }
@@ -461,9 +621,26 @@ async function importJson(file) {
   }
 }
 
-function resetToBase() {
-  if (!confirm('确定恢复初始行程吗？当前修改将被覆盖。')) return;
-  const base = ItineraryCore.normalizePoints(BASE_POIS.map(function(p){ return Object.assign({}, p); }));
+async function resetToBase() {
+  const tip = cloudEnabled()
+    ? '确定恢复初始行程吗？将覆盖云端共享数据，所有人的修改都会丢失。'
+    : '确定恢复初始行程吗？当前本机修改将被覆盖。';
+  if (!confirm(tip)) return;
+  if (!confirm('再次确认：此操作不可撤销（可用导出 JSON 备份）。')) return;
+  if (cloudEnabled()) {
+    try {
+      const doc = await resetRemoteItinerary();
+      applyRemoteDoc({
+        version: doc.version,
+        title: doc.title,
+        points: ItineraryCore.normalizePoints(doc.points)
+      }, '已恢复云端初始行程 v' + doc.version);
+    } catch (e) {
+      setSaveStatus('恢复失败：' + (e && e.message || e), true);
+    }
+    return;
+  }
+  const base = basePoints();
   try {
     localStorage.removeItem(STORAGE_KEY);
   } catch (e) {
@@ -471,12 +648,13 @@ function resetToBase() {
     return;
   }
   POIS = base;
+  remoteVersion = 1;
   document.getElementById('bPoi').textContent = POIS.length;
   setSaveStatus('已恢复初始行程', false);
   if (curDay !== null) selectDay(curDay);
 }
 
-let POIS = loadState();
+let POIS = loadCachedOrBase();
 
 document.getElementById('bDays').textContent = DAYS.length;
 document.getElementById('bPoi').textContent = POIS.length;
@@ -737,7 +915,7 @@ async function searchPlaces(keyword, city) {
   }
 }
 
-function submitPoint(formData) {
+async function submitPoint(formData) {
   const day = Number(formData.get('day'));
   let time = String(formData.get('time') || '');
   if (time.length > 5) time = time.slice(0, 5);
@@ -758,6 +936,7 @@ function submitPoint(formData) {
     return false;
   }
   const previousPoints = POIS;
+  const previousVersion = remoteVersion;
   const previousDay = existingId
     ? (POIS.find(function(item){ return item.id === existingId; }) || {}).day
     : null;
@@ -773,13 +952,15 @@ function submitPoint(formData) {
     candidate = existingId
       ? ItineraryCore.updatePoint(previousPoints, point)
       : ItineraryCore.insertPointByTime(previousPoints, point);
-    if (!saveState(candidate)) {
+    if (!(await persistPoints(candidate))) {
       POIS = previousPoints;
+      remoteVersion = previousVersion;
       setEditorMessage('保存失败，变更未提交，请重试或导出 JSON');
       return false;
     }
   } catch (e) {
     POIS = previousPoints;
+    remoteVersion = previousVersion;
     setEditorMessage((existingId ? '编辑' : '新增') + '失败：' + (e && e.message || e));
     return false;
   }
@@ -1114,7 +1295,7 @@ function flyTo(d, num){
   infoWin.open();
 }
 
-function boot(){
+async function boot(){
   if (location.protocol === 'file:') {
     showMapUnavailable(
       '腾讯 JSAPI GL 不支持直接双击打开。请运行本地 HTTP 服务并访问 '
@@ -1129,6 +1310,15 @@ function boot(){
       mapReady = false;
       showMapUnavailable('地图初始化失败：' + (e && e.message || e));
     }
+  }
+  if (cloudEnabled()) {
+    try {
+      const doc = await fetchRemoteItinerary();
+      applyRemoteDoc(doc, '已从云端加载 v' + doc.version);
+    } catch (e) {
+      setSaveStatus('云端暂不可用，已使用本地缓存：' + (e && e.message || e), true);
+    }
+    startPolling();
   }
   selectDay(DAYS[0]);
 }
@@ -1146,6 +1336,7 @@ if (typeof TMap !== 'undefined') {
 
 HTML = (HTML
     .replace("__KEY__", KEY)
+    .replace("__API_BASE__", API_BASE)
     .replace("__CORE_JS__", core_js)
     .replace("__POIS__", pois_js)
     .replace("__DAYMETA__", day_meta_js)
@@ -1156,4 +1347,5 @@ HTML = (HTML
 
 (ROOT / "itinerary.html").write_text(HTML, encoding="utf-8")
 (ROOT / "index.html").write_text(HTML, encoding="utf-8")
-print("OK v3 itinerary.html + index.html  total=¥%d  pois=%d days=%d" % (total, len(data), len(days)))
+print("OK v3 itinerary.html + index.html  total=¥%s  pois=%d days=%d api=%s" % (
+    total, len(data), len(days), API_BASE or "(local-only)"))

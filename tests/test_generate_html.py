@@ -75,23 +75,18 @@ class GeneratedHtmlTest(unittest.TestCase):
 
     def test_persistence_api_uses_versioned_local_storage(self):
         self.assertIn("const STORAGE_KEY = 'itinerary-editor-state-v1';", self.html)
-        self.assertIn("function loadState()", self.html)
+        self.assertIn("function loadCachedOrBase()", self.html)
+        self.assertIn("function cacheLocal(points, meta)", self.html)
+        self.assertIn("function persistPoints(points)", self.html)
         self.assertIn("function saveState(points)", self.html)
         self.assertIn("schemaVersion: 1", self.html)
         self.assertIn("localStorage.setItem(STORAGE_KEY", self.html)
         self.assertIn("try {", self.html)
         self.assertIn("return false;", self.html)
 
-    def test_transfer_and_reset_controls_are_present(self):
-        for control in ("addPointBtn", "exportBtn", "importInput", "resetBtn", "saveStatus"):
-            self.assertIn('id="' + control + '"', self.html)
-        self.assertIn("function exportJson()", self.html)
-        self.assertIn("function importJson(file)", self.html)
-        self.assertIn("function resetToBase()", self.html)
-
     def test_import_validates_before_replacing_points(self):
-        import_fn = self.html.split("function importJson(file)", 1)[1].split(
-            "function resetToBase()", 1
+        import_fn = self.html.split("async function importJson(file)", 1)[1].split(
+            "async function resetToBase()", 1
         )[0]
         self.assertIn("ItineraryCore.parseImport", import_fn)
         self.assertLess(import_fn.index("ItineraryCore.parseImport"),
@@ -99,9 +94,16 @@ class GeneratedHtmlTest(unittest.TestCase):
         self.assertIn("confirm(", import_fn)
         self.assertIn("catch", import_fn)
 
+    def test_transfer_and_reset_controls_are_present(self):
+        for control in ("addPointBtn", "exportBtn", "importInput", "resetBtn", "saveStatus"):
+            self.assertIn('id="' + control + '"', self.html)
+        self.assertIn("function exportJson()", self.html)
+        self.assertIn("async function importJson(file)", self.html)
+        self.assertIn("async function resetToBase()", self.html)
+
     def test_export_downloads_blob_and_releases_url(self):
         export_fn = self.html.split("function exportJson()", 1)[1].split(
-            "function importJson(file)", 1
+            "function restoreStoredState", 1
         )[0]
         self.assertIn("new Blob", export_fn)
         self.assertIn("URL.createObjectURL", export_fn)
@@ -109,12 +111,13 @@ class GeneratedHtmlTest(unittest.TestCase):
         self.assertIn("URL.revokeObjectURL", export_fn)
 
     def test_reset_removes_saved_state_and_rerenders(self):
-        reset_fn = self.html.split("function resetToBase()", 1)[1].split(
-            "function boot()", 1
+        reset_fn = self.html.split("async function resetToBase()", 1)[1].split(
+            "let POIS =", 1
         )[0]
         self.assertIn("localStorage.removeItem(STORAGE_KEY)", reset_fn)
-        self.assertIn("BASE_POIS", reset_fn)
+        self.assertIn("basePoints()", reset_fn)
         self.assertIn("selectDay(curDay)", reset_fn)
+        self.assertIn("resetRemoteItinerary", reset_fn)
 
     def test_map_styles_follow_rendered_points_and_empty_itinerary_has_default_center(self):
         marker_styles = self.html.split("function markerStyles(", 1)[1].split(
@@ -132,28 +135,29 @@ class GeneratedHtmlTest(unittest.TestCase):
         self.assertIn("multiMarker.setStyles(markerStyles(list))", render_map)
 
     def test_import_rolls_back_points_and_exact_storage_snapshot_after_late_failure(self):
-        import_fn = self.html.split("function importJson(file)", 1)[1].split(
-            "function resetToBase()", 1
+        import_fn = self.html.split("async function importJson(file)", 1)[1].split(
+            "async function resetToBase()", 1
         )[0]
         self.assertIn("previousStored = localStorage.getItem(STORAGE_KEY)", import_fn)
         self.assertIn("restoreStoredState(previousStored)", import_fn)
         self.assertIn("POIS = previous", import_fn)
-        self.assertLess(import_fn.index("saveState(POIS)"),
+        self.assertLess(import_fn.index("persistPoints(POIS)"),
                         import_fn.index("document.getElementById('bPoi')"))
 
     def test_reset_does_not_mutate_points_before_storage_removal_succeeds(self):
-        reset_fn = self.html.split("function resetToBase()", 1)[1].split(
-            "function boot()", 1
+        reset_fn = self.html.split("async function resetToBase()", 1)[1].split(
+            "let POIS =", 1
         )[0]
         self.assertIn("try {", reset_fn)
         self.assertIn("catch", reset_fn)
         self.assertIn("恢复失败", reset_fn)
-        self.assertLess(reset_fn.index("localStorage.removeItem(STORAGE_KEY)"),
-                        reset_fn.index("POIS ="))
+        local_branch = reset_fn.split("const base = basePoints();", 1)[1]
+        self.assertLess(local_branch.index("localStorage.removeItem(STORAGE_KEY)"),
+                        local_branch.index("POIS = base"))
 
     def test_export_revokes_object_url_in_finally(self):
         export_fn = self.html.split("function exportJson()", 1)[1].split(
-            "function importJson(file)", 1
+            "function restoreStoredState", 1
         )[0]
         self.assertIn("finally", export_fn)
         self.assertLess(export_fn.index("finally"),
@@ -220,7 +224,7 @@ class GeneratedHtmlTest(unittest.TestCase):
 
     def test_suggestion_uses_tencent_ad_info_city_before_fallbacks(self):
         search_fn = self.html.split("function searchPlaces(keyword, city)", 1)[1].split(
-            "function submitPoint(formData)", 1
+            "async function submitPoint(formData)", 1
         )[0]
         city_expression = (
             "(item.ad_info && item.ad_info.city) || item.city || item.region || city"
@@ -228,8 +232,8 @@ class GeneratedHtmlTest(unittest.TestCase):
         self.assertIn(city_expression, search_fn)
 
     def test_submit_point_uses_safe_id_and_atomic_candidate_save(self):
-        self.assertIn("function submitPoint(formData)", self.html)
-        submit_fn = self.html.split("function submitPoint(formData)", 1)[1].split(
+        self.assertIn("async function submitPoint(formData)", self.html)
+        submit_fn = self.html.split("async function submitPoint(formData)", 1)[1].split(
             "document.getElementById('pointCancelBtn')", 1
         )[0]
         self.assertIn("crypto.randomUUID", submit_fn)
@@ -237,9 +241,9 @@ class GeneratedHtmlTest(unittest.TestCase):
         self.assertIn("ItineraryCore.insertPointByTime", submit_fn)
         self.assertIn("ItineraryCore.updatePoint", submit_fn)
         self.assertIn("const previousPoints = POIS", submit_fn)
-        self.assertIn("if (!saveState(candidate))", submit_fn)
+        self.assertIn("persistPoints(candidate)", submit_fn)
         self.assertLess(
-            submit_fn.index("if (!saveState(candidate))"),
+            submit_fn.index("persistPoints(candidate)"),
             submit_fn.index("POIS = candidate"),
         )
         self.assertIn("source: pointSource", submit_fn)
@@ -303,7 +307,18 @@ class GeneratedHtmlTest(unittest.TestCase):
         self.assertNotIn(".layout.mobile-list .map-wrap{display:none}", self.html)
         self.assertIn('id="moreBtn"', self.html)
 
-    def test_optimized_itinerary_hotel_and_route_rules(self):
+    def test_cloud_sync_hooks_are_present(self):
+        self.assertIn('const API_BASE = "', self.html)
+        self.assertIn("function cloudEnabled()", self.html)
+        self.assertIn("function fetchRemoteItinerary()", self.html)
+        self.assertIn("function pushRemoteItinerary(points, title)", self.html)
+        self.assertIn("X-Edit-Password", self.html)
+        self.assertIn("/api/itinerary", self.html)
+        self.assertIn("版本冲突", self.html)
+        self.assertIn("将覆盖云端共享数据", self.html)
+        self.assertIn("sessionStorage", self.html)
+        self.assertIn("startPolling", self.html)
+        self.assertIn("persistPoints", self.html)
         self.assertIn('"title": "济南站候车出发"', self.html)
         self.assertIn('"title": "威海住宿·山大路(出发)"', self.html)
         self.assertIn('"title": "烟台住宿·青年南路"', self.html)
