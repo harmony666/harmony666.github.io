@@ -27,6 +27,7 @@ C:/Python314/python.exe -m unittest discover -s tests -v
 - API：Express + 文件存储；`/etc/itinerary-api.env`
 - 部署：`scripts/deploy_vps.py`
 - 写接口头：`X-Edit-Password`
+- 地图：百度 JS API（`generate_html.py` 内 AK）；删除点需确认
 
 ## 目录与约定
 

@@ -5,7 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent
 
-KEY = "B6VBZ-V75KG-HBEQP-IRLIB-ANBLZ-W6BD5"
+KEY = "bzv7nHMM4yqiTtyQfsxAU6u8m2RutOkB"
 # 云端 API 根 URL（无尾斜杠）。留空则纯本地 localStorage 模式。
 # 腾讯云 Nginx 反代 /api 时用站点根，例如 http://124.222.108.66
 API_BASE = "http://124.222.108.66"
@@ -98,7 +98,7 @@ HTML = r"""<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>武汉 → 山东 9日旅行计划</title>
-<script src="https://map.qq.com/api/gljs?v=1&key=__KEY__&libraries=service"></script>
+<script src="https://api.map.baidu.com/api?v=3.0&ak=__KEY__"></script>
 <style>
 :root{
   --ink:#0a2540; --sub:#425466; --muted:#8898aa; --line:#e6eaf2;
@@ -166,10 +166,14 @@ body{
 .card .ds{color:var(--sub); font-size:12.5px; margin-top:4px; line-height:1.5; word-break:break-word}
 .tag{font-size:10.5px; font-weight:700; color:#fff; background:var(--c); border-radius:7px; padding:2px 7px; letter-spacing:.5px}
 .card .num{position:absolute; right:12px; top:12px; width:24px; height:24px; border-radius:50%;
-  display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; color:#fff; background:var(--c)}
-.card .edit-btn{position:absolute; right:44px; top:12px; border:1px solid var(--line); background:#fff;
-  color:var(--sub); border-radius:8px; padding:2px 8px; font-size:11px; cursor:pointer}
+  display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; color:#fff; background:var(--c); z-index:1}
+.card .card-actions{position:absolute; right:44px; top:12px; display:flex; flex-direction:row; align-items:center;
+  gap:8px; z-index:2}
+.card .edit-btn,.card .del-btn{position:static; flex:0 0 auto; border:1px solid var(--line); background:#fff;
+  color:var(--sub); border-radius:8px; padding:4px 10px; font-size:11px; line-height:1.2; cursor:pointer;
+  white-space:nowrap; box-shadow:none}
 .card .edit-btn:hover{border-color:#635bff; color:var(--ink)}
+.card .del-btn:hover{border-color:#ff5a5f; color:#c33}
 .card.hotel-card{background:linear-gradient(135deg, #fff8e6 0%, #ffffff 60%);}
 .card.hotel-card .hotel-meta{font-size:12px; color:var(--sub); margin-top:6px; display:flex; gap:10px; flex-wrap:wrap}
 .card.hotel-card .hotel-meta b{color:var(--ink)}
@@ -240,8 +244,12 @@ body{
   }
   .map-wrap{border-left:none}
   .timeline{padding:14px 12px 80px}
-  .card{padding:11px 12px; padding-right:40px}
-  .card .edit-btn{right:12px; top:40px}
+  .card{padding:11px 12px 48px; padding-right:40px}
+  .card .card-actions{
+    left:62px; right:12px; top:auto; bottom:10px;
+    justify-content:flex-end; gap:10px;
+  }
+  .card .edit-btn,.card .del-btn{padding:8px 14px; font-size:13px; min-height:36px}
   .card .time{flex:0 0 44px; font-size:12px}
   .day-head .d{font-size:18px}
   .point-editor{width:100%; padding:18px 14px calc(18px + env(safe-area-inset-bottom,0px))}
@@ -750,7 +758,9 @@ DAYS.forEach(function(d){
   tabsEl.appendChild(t);
 });
 
-let map, multiMarker, multiPoly, infoWin;
+let map, infoWin;
+let mapMarkers = [];
+let mapPolyline = null;
 let mapReady = false;
 let curDay = null;
 let mapPickHandler = null;
@@ -762,7 +772,7 @@ function setEditorMessage(message) {
 }
 
 function isMapAvailable() {
-  return mapReady && typeof TMap !== 'undefined' && !!map && !!multiMarker && !!multiPoly;
+  return mapReady && typeof BMap !== 'undefined' && !!map;
 }
 
 function updateMapControls() {
@@ -776,9 +786,30 @@ function showMapUnavailable(message) {
   updateMapControls();
 }
 
+function gcj02ToBd09(lng, lat) {
+  const x = Number(lng);
+  const y = Number(lat);
+  const z = Math.sqrt(x * x + y * y) + 0.00002 * Math.sin(y * Math.PI * 3000.0 / 180.0);
+  const theta = Math.atan2(y, x) + 0.000003 * Math.cos(x * Math.PI * 3000.0 / 180.0);
+  return { lng: z * Math.cos(theta) + 0.0065, lat: z * Math.sin(theta) + 0.006 };
+}
+
+function bd09ToGcj02(lng, lat) {
+  const x = Number(lng) - 0.0065;
+  const y = Number(lat) - 0.006;
+  const z = Math.sqrt(x * x + y * y) - 0.00002 * Math.sin(y * Math.PI * 3000.0 / 180.0);
+  const theta = Math.atan2(y, x) - 0.000003 * Math.cos(x * Math.PI * 3000.0 / 180.0);
+  return { lng: z * Math.cos(theta), lat: z * Math.sin(theta) };
+}
+
+function toBdPoint(lat, lng) {
+  const bd = gcj02ToBd09(lng, lat);
+  return new BMap.Point(bd.lng, bd.lat);
+}
+
 function removeMapPickHandler() {
-  if (mapPickHandler && map && typeof map.off === 'function') {
-    map.off('click', mapPickHandler);
+  if (mapPickHandler && map && typeof map.removeEventListener === 'function') {
+    map.removeEventListener('click', mapPickHandler);
   }
   mapPickHandler = null;
 }
@@ -835,32 +866,54 @@ function refreshDayView(day) {
   selectDay(day);
 }
 
+async function deletePointById(pointId) {
+  const p = POIS.find(function(item){ return item.id === pointId; });
+  if (!p) return;
+  if (!window.confirm('确定删除：' + p.title + '？')) return;
+  const previousPoints = POIS;
+  const previousVersion = remoteVersion;
+  try {
+    const candidate = ItineraryCore.deletePoint(previousPoints, p.id);
+    if (!(await persistPoints(candidate))) {
+      POIS = previousPoints;
+      remoteVersion = previousVersion;
+      setSaveStatus('删除失败，变更未提交，请重试或导出 JSON', true);
+      return;
+    }
+    POIS = candidate;
+    document.getElementById('bPoi').textContent = POIS.length;
+    refreshDayView(p.day);
+  } catch (e) {
+    POIS = previousPoints;
+    remoteVersion = previousVersion;
+    setSaveStatus('删除失败：' + (e && e.message || e), true);
+  }
+}
+
 function beginMapPick() {
   removeMapPickHandler();
-  if (!map || typeof map.on !== 'function' || typeof map.off !== 'function') {
+  if (!isMapAvailable()) {
     setEditorMessage('地图不可用，请手动输入经纬度');
     return;
   }
   mapPickHandler = function(e) {
-    const location = e && (e.latLng || e.position);
-    if (!location) {
+    if (!e || !e.point) {
       setEditorMessage('未能取得地图坐标，请重试');
       return;
     }
-    const lat = typeof location.getLat === 'function' ? location.getLat() : location.lat;
-    const lng = typeof location.getLng === 'function' ? location.getLng() : location.lng;
-    document.getElementById('pointLat').value = lat;
-    document.getElementById('pointLng').value = lng;
+    const gcj = bd09ToGcj02(e.point.lng, e.point.lat);
+    document.getElementById('pointLat').value = gcj.lat;
+    document.getElementById('pointLng').value = gcj.lng;
     pointSource = 'map_click';
-    map.off('click', mapPickHandler);
+    map.removeEventListener('click', mapPickHandler);
     mapPickHandler = null;
     setEditorMessage('已选择地图坐标');
   };
-  map.on('click', mapPickHandler);
+  map.addEventListener('click', mapPickHandler);
   setEditorMessage('请在地图上点击位置');
 }
 
-async function searchPlaces(keyword, city) {
+function searchPlaces(keyword, city) {
   const results = document.getElementById('placeResults');
   results.replaceChildren();
   keyword = String(keyword || '').trim();
@@ -869,51 +922,52 @@ async function searchPlaces(keyword, city) {
     setEditorMessage('请输入搜索关键词');
     return;
   }
-  if (typeof TMap === 'undefined' || !TMap.service || !TMap.service.Suggestion) {
+  if (typeof BMap === 'undefined' || typeof BMap.LocalSearch !== 'function') {
     setEditorMessage('地点搜索暂不可用');
     return;
   }
   setEditorMessage('正在搜索…');
-  try {
-    const suggestion = new TMap.service.Suggestion({ pageSize: 8 });
-    suggestion.setRegion(city);
-    const response = await suggestion.getSuggestions({ keyword: keyword });
-    const items = (response && response.data || []).slice(0, 8);
-    if (!items.length) {
-      setEditorMessage('未找到地点，请更换关键词');
-      return;
+  const local = new BMap.LocalSearch(city || map || '全国', {
+    onSearchComplete: function(res) {
+      if (local.getStatus() !== BMAP_STATUS_SUCCESS) {
+        setEditorMessage('未找到地点，请更换关键词');
+        return;
+      }
+      const n = Math.min(res.getCurrentNumPois(), 8);
+      if (!n) {
+        setEditorMessage('未找到地点，请更换关键词');
+        return;
+      }
+      for (let i = 0; i < n; i++) {
+        const item = res.getPoi(i);
+        if (!item || !item.point) continue;
+        const gcj = bd09ToGcj02(item.point.lng, item.point.lat);
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'place-result';
+        const title = document.createElement('strong');
+        title.textContent = item.title || '';
+        const address = document.createElement('small');
+        address.textContent = item.address || '';
+        button.append(title, address);
+        button.addEventListener('click', function() {
+          document.getElementById('pointTitle').value = item.title || '';
+          document.getElementById('pointCity').value = item.city || city;
+          document.getElementById('pointLat').value = gcj.lat;
+          document.getElementById('pointLng').value = gcj.lng;
+          pointSource = 'place_search';
+          if (map) {
+            map.centerAndZoom(item.point, 15);
+          }
+          setEditorMessage('已选择搜索结果');
+        });
+        results.appendChild(button);
+      }
+      setEditorMessage('');
     }
-    items.forEach(function(item) {
-      const location = item.location || item.latLng || {};
-      const lat = typeof location.getLat === 'function' ? location.getLat() : location.lat;
-      const lng = typeof location.getLng === 'function' ? location.getLng() : location.lng;
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'place-result';
-      const title = document.createElement('strong');
-      title.textContent = item.title || item.name || '';
-      const address = document.createElement('small');
-      address.textContent = item.address || '';
-      button.append(title, address);
-      button.addEventListener('click', function() {
-        document.getElementById('pointTitle').value = item.title || item.name || '';
-        document.getElementById('pointCity').value =
-          (item.ad_info && item.ad_info.city) || item.city || item.region || city;
-        document.getElementById('pointLat').value = lat;
-        document.getElementById('pointLng').value = lng;
-        pointSource = 'place_search';
-        if (map && Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))) {
-          map.setCenter(new TMap.LatLng(Number(lat), Number(lng)));
-          map.setZoom(15);
-        }
-        setEditorMessage('已选择搜索结果');
-      });
-      results.appendChild(button);
-    });
-    setEditorMessage('');
-  } catch (e) {
-    setEditorMessage('搜索失败，请稍后重试');
-  }
+  });
+  local.setPageCapacity(8);
+  local.search(keyword);
 }
 
 async function submitPoint(formData) {
@@ -986,36 +1040,8 @@ document.getElementById('pointForm').addEventListener('submit', function(e) {
   submitPoint(new FormData(e.currentTarget));
 });
 
-function markerStyles(points) {
-  const styles = {};
-  points.forEach(function(p) {
-    const svg = ItineraryCore.buildNumberedPinSvg(p.position, CATS[p.cat].color);
-    styles[p.id] = new TMap.MarkerStyle({
-      src: 'data:image/svg+xml,' + encodeURIComponent(svg),
-      width: 36, height: 42, anchor: { x: 18, y: 41 }
-    });
-  });
-  return styles;
-}
-
-function polylineStyle() {
-  return new TMap.PolylineStyle({
-    width: 7,
-    color: '#ff5a5f',
-    borderWidth: 3,
-    borderColor: '#ffffff',
-    showArrow: true,
-    arrowOptions: { width: 8, height: 5, space: 60 },
-    lineCap: 'round',
-    lineJoin: 'round'
-  });
-}
-
 function straightSegment(from, to) {
-  return [
-    new TMap.LatLng(Number(from.lat), Number(from.lng)),
-    new TMap.LatLng(Number(to.lat), Number(to.lng))
-  ];
+  return [toBdPoint(from.lat, from.lng), toBdPoint(to.lat, to.lng)];
 }
 
 function pointsRouteKey(list) {
@@ -1024,53 +1050,42 @@ function pointsRouteKey(list) {
   }).join('|');
 }
 
-function toLatLngPoint(pt) {
-  if (!pt) return null;
-  if (typeof pt.getLat === 'function' && typeof pt.getLng === 'function') {
-    return new TMap.LatLng(pt.getLat(), pt.getLng());
-  }
-  if (Number.isFinite(Number(pt.lat)) && Number.isFinite(Number(pt.lng))) {
-    return new TMap.LatLng(Number(pt.lat), Number(pt.lng));
-  }
-  return null;
-}
-
-function extractDrivingPolyline(result) {
-  if (!result) return null;
-  const routes = (result.result && result.result.routes) || result.routes || [];
-  const route = routes[0];
-  if (!route || !route.polyline) return null;
-  const raw = route.polyline;
-  if (!Array.isArray(raw) || raw.length < 2) return null;
-  if (typeof raw[0] === 'number') return null;
-  const path = [];
-  for (let i = 0; i < raw.length; i++) {
-    const pt = toLatLngPoint(raw[i]);
-    if (pt) path.push(pt);
-  }
-  return path.length >= 2 ? path : null;
-}
-
 const drivingRouteCache = Object.create(null);
 let routeRequestSeq = 0;
 
-async function fetchDrivingSegment(from, to) {
+function fetchDrivingSegment(from, to) {
   const span = Math.abs(Number(from.lat) - Number(to.lat))
     + Math.abs(Number(from.lng) - Number(to.lng));
-  if (span < 0.0002) return straightSegment(from, to);
-  if (typeof TMap === 'undefined' || !TMap.service || !TMap.service.Driving) {
-    return straightSegment(from, to);
+  if (span < 0.0002 || !isMapAvailable() || typeof BMap.DrivingRoute !== 'function') {
+    return Promise.resolve(straightSegment(from, to));
   }
-  try {
-    const driving = new TMap.service.Driving({ policy: 'LEAST_TIME' });
-    const result = await driving.search({
-      from: new TMap.LatLng(Number(from.lat), Number(from.lng)),
-      to: new TMap.LatLng(Number(to.lat), Number(to.lng))
+  return new Promise(function(resolve) {
+    const driving = new BMap.DrivingRoute(map, {
+      onSearchComplete: function(results) {
+        if (driving.getStatus() !== BMAP_STATUS_SUCCESS) {
+          resolve(straightSegment(from, to));
+          return;
+        }
+        const plan = results && results.getPlan(0);
+        if (!plan) {
+          resolve(straightSegment(from, to));
+          return;
+        }
+        const path = [];
+        for (let i = 0; i < plan.getNumRoutes(); i++) {
+          const route = plan.getRoute(i);
+          const pts = route.getPath();
+          for (let j = 0; j < pts.length; j++) path.push(pts[j]);
+        }
+        resolve(path.length >= 2 ? path : straightSegment(from, to));
+      }
     });
-    const path = extractDrivingPolyline(result);
-    if (path) return path;
-  } catch (_) {}
-  return straightSegment(from, to);
+    try {
+      driving.search(toBdPoint(from.lat, from.lng), toBdPoint(to.lat, to.lng));
+    } catch (_) {
+      resolve(straightSegment(from, to));
+    }
+  });
 }
 
 async function buildDrivingRoutePath(list) {
@@ -1099,30 +1114,15 @@ function setMapRouteTitle(d, list, suffix) {
 
 function fitMapToPoints(list) {
   if (!isMapAvailable() || !list || list.length === 0) return;
-  const lats = list.map(function(p){ return Number(p.lat); });
-  const lngs = list.map(function(p){ return Number(p.lng); });
-  const minLat = Math.min.apply(null, lats);
-  const maxLat = Math.max.apply(null, lats);
-  const minLng = Math.min.apply(null, lngs);
-  const maxLng = Math.max.apply(null, lngs);
-  const centerLat = (minLat + maxLat) / 2;
-  const centerLng = (minLng + maxLng) / 2;
-  if (list.length === 1 || (maxLat - minLat < 0.0005 && maxLng - minLng < 0.0005)) {
-    map.setCenter(new TMap.LatLng(centerLat, centerLng));
-    map.setZoom(14);
+  const pts = list.map(function(p){ return toBdPoint(p.lat, p.lng); });
+  if (list.length === 1) {
+    map.centerAndZoom(pts[0], 14);
     return;
   }
-  const sw = new TMap.LatLng(minLat, minLng);
-  const ne = new TMap.LatLng(maxLat, maxLng);
   try {
-    map.fitBounds(new TMap.LatLngBounds(sw, ne), {
-      padding: { top: 80, bottom: 80, left: 80, right: 80 }
-    });
+    map.setViewport(pts, { margins: [80, 80, 80, 80] });
   } catch (e) {
-    const span = Math.max(maxLat - minLat, maxLng - minLng);
-    const zoom = span < 0.04 ? 14 : span < 0.09 ? 13 : span < 0.25 ? 12 : span < 0.8 ? 10 : span < 2 ? 8 : 7;
-    map.setCenter(new TMap.LatLng(centerLat, centerLng));
-    map.setZoom(zoom);
+    map.centerAndZoom(pts[0], 12);
   }
 }
 
@@ -1134,19 +1134,25 @@ function scheduleFitMapToPoints(list) {
   });
 }
 
+function clearMapOverlays() {
+  if (!map) return;
+  map.clearOverlays();
+  mapMarkers = [];
+  mapPolyline = null;
+  infoWin = null;
+}
+
 function initMap(){
   mapReady = false;
   const c0 = POIS[0] || {lat: 30.5928, lng: 114.3055};
-  map = new TMap.Map('map', { center: new TMap.LatLng(c0.lat, c0.lng), zoom: 12 });
-  multiMarker = new TMap.MultiMarker({ map: map, styles: markerStyles(POIS), geometries: [] });
-  multiPoly = new TMap.MultiPolyline({ map: map, styles: { route: polylineStyle() }, geometries: [] });
-  try { multiPoly.setZIndex(100); } catch(_) {}
-  try { multiMarker.setZIndex(200); } catch(_) {}
-  multiMarker.on('click', function(e){
-    const p = e.geometry && e.geometry.properties;
-    if (p) flyTo(p.day, p.position);
+  map = new BMap.Map('map');
+  map.centerAndZoom(toBdPoint(c0.lat, c0.lng), 12);
+  map.enableScrollWheelZoom(true);
+  map.addControl(new BMap.NavigationControl());
+  map.addControl(new BMap.ScaleControl());
+  window.addEventListener('resize', function(){
+    try { map.checkResize && map.checkResize(); } catch(_) {}
   });
-  window.addEventListener('resize', function(){ try{ map.invalidateSize && map.invalidateSize(); }catch(_){} });
   mapReady = true;
   updateMapControls();
   return true;
@@ -1179,8 +1185,10 @@ function renderTimeline(d, list){
           + '</div>';
       }
     }
-    html += '</div><button type="button" class="edit-btn" data-id="'+escapeHtml(p.id)+'">编辑</button>'
-      + '<div class="num">'+p.position+'</div></div>';
+    html += '</div><div class="card-actions">'
+      + '<button type="button" class="edit-btn" data-id="'+escapeHtml(p.id)+'">编辑</button>'
+      + '<button type="button" class="del-btn" data-id="'+escapeHtml(p.id)+'">删除</button>'
+      + '</div><div class="num">'+p.position+'</div></div>';
   });
   t.innerHTML = html;
   t.scrollTop = 0;
@@ -1196,6 +1204,12 @@ function renderTimeline(d, list){
       openPointEditorForEdit(btn.dataset.id);
     });
   });
+  Array.from(t.querySelectorAll('.del-btn')).forEach(function(btn){
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      deletePointById(btn.dataset.id);
+    });
+  });
 }
 
 function renderMap(d, list){
@@ -1204,46 +1218,51 @@ function renderMap(d, list){
     return;
   }
   setMapRouteTitle(d, list, '');
-
-  const geoms = list.map(function(p){
-    return {
-      id: p.id,
-      styleId: p.id,
-      position: new TMap.LatLng(p.lat, p.lng),
-      properties: p
-    };
-  });
-  const straightPaths = list.map(function(p){ return new TMap.LatLng(p.lat, p.lng); });
-  const requestId = ++routeRequestSeq;
+  clearMapOverlays();
 
   try {
-    if (!multiMarker || !multiPoly) throw new Error('覆盖物未初始化');
-    multiMarker.setStyles(markerStyles(list));
-    multiMarker.setGeometries(geoms);
-    multiPoly.setGeometries(list.length >= 2 ? [{
-      id: 'route_' + d,
-      paths: straightPaths,
-      styleId: 'route'
-    }] : []);
+    list.forEach(function(p) {
+      const svg = ItineraryCore.buildNumberedPinSvg(p.position, CATS[p.cat].color);
+      const icon = new BMap.Icon(
+        'data:image/svg+xml,' + encodeURIComponent(svg),
+        new BMap.Size(36, 42),
+        { anchor: new BMap.Size(18, 41) }
+      );
+      const marker = new BMap.Marker(toBdPoint(p.lat, p.lng), { icon: icon });
+      marker.addEventListener('click', function(){ flyTo(p.day, p.position); });
+      map.addOverlay(marker);
+      mapMarkers.push(marker);
+    });
+    if (list.length >= 2) {
+      const straight = list.map(function(p){ return toBdPoint(p.lat, p.lng); });
+      mapPolyline = new BMap.Polyline(straight, {
+        strokeColor: '#ff5a5f',
+        strokeWeight: 6,
+        strokeOpacity: 0.9
+      });
+      map.addOverlay(mapPolyline);
+    }
   } catch(e){
     document.getElementById('mapTitle').innerHTML +=
       ' · ❌渲染失败: ' + escapeHtml(e && e.message || e);
     return;
   }
 
-  if (infoWin) { infoWin.close(); infoWin = null; }
   scheduleFitMapToPoints(list);
   if (list.length < 2) return;
 
+  const requestId = ++routeRequestSeq;
   setMapRouteTitle(d, list, '路线计算中…');
   buildDrivingRoutePath(list).then(function(path) {
     if (requestId !== routeRequestSeq || curDay !== d || !isMapAvailable()) return;
     if (path && path.length >= 2) {
-      multiPoly.setGeometries([{
-        id: 'route_' + d,
-        paths: path,
-        styleId: 'route'
-      }]);
+      if (mapPolyline) map.removeOverlay(mapPolyline);
+      mapPolyline = new BMap.Polyline(path, {
+        strokeColor: '#ff5a5f',
+        strokeWeight: 6,
+        strokeOpacity: 0.9
+      });
+      map.addOverlay(mapPolyline);
       scheduleFitMapToPoints(list);
     }
     setMapRouteTitle(d, list, '驾车路线');
@@ -1273,8 +1292,8 @@ function flyTo(d, num){
   });
   if (isMobileLayout()) setMobileView('map');
   if (!isMapAvailable()) return;
-  map.setCenter(new TMap.LatLng(p.lat, p.lng));
-  map.setZoom(15);
+  const pt = toBdPoint(p.lat, p.lng);
+  map.centerAndZoom(pt, 15);
   const c = CATS[p.cat];
   let extra = '';
   if (p.cat === 'hotel'){
@@ -1288,22 +1307,19 @@ function flyTo(d, num){
     + '<div class="it">'+escapeHtml(p.title)+'<span class="tag" style="background:'+c.color+'">'+c.label+'</span></div>'
     + '<div class="im">'+DAY_META[d].date+' · '+escapeHtml(p.time)+' · '+escapeHtml(p.city)+'</div>'
     + extra + '</div>';
-  if (infoWin) infoWin.close();
-  infoWin = new TMap.InfoWindow({
-    map: map, position: new TMap.LatLng(p.lat, p.lng),
-    content: html, offset: {x:0, y:-32}
-  });
-  infoWin.open();
+  if (infoWin) map.closeInfoWindow();
+  infoWin = new BMap.InfoWindow(html, { width: 280, offset: new BMap.Size(0, -32) });
+  map.openInfoWindow(infoWin, pt);
 }
 
 async function boot(){
   if (location.protocol === 'file:') {
     showMapUnavailable(
-      '腾讯 JSAPI GL 不支持直接双击打开。请运行本地 HTTP 服务并访问 '
+      '百度地图 JS API 不支持直接双击打开。请运行本地 HTTP 服务并访问 '
       + 'http://localhost:8000/'
     );
-  } else if (typeof TMap === 'undefined') {
-    showMapUnavailable('腾讯地图脚本未加载，请检查网络或 Key 配置');
+  } else if (typeof BMap === 'undefined') {
+    showMapUnavailable('百度地图脚本未加载，请检查网络或 Key 配置');
   } else {
     try {
       initMap();
@@ -1324,7 +1340,7 @@ async function boot(){
   selectDay(DAYS[0]);
 }
 
-if (typeof TMap !== 'undefined') {
+if (typeof BMap !== 'undefined') {
   boot();
 } else {
   window.addEventListener('load', function(){
@@ -1334,6 +1350,7 @@ if (typeof TMap !== 'undefined') {
 </script>
 </body>
 </html>"""
+
 
 HTML = (HTML
     .replace("__KEY__", KEY)

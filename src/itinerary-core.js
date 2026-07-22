@@ -60,6 +60,14 @@
     return insertPointByTime(without, point);
   }
 
+  function deletePoint(points, id) {
+    if (typeof id !== 'string' || !id.trim()) throw new Error('点 ID 必须是非空字符串');
+    const target = id.trim();
+    const without = points.filter((p) => p.id !== target);
+    if (without.length === points.length) throw new Error('要删除的行程点不存在');
+    return normalizePoints(without);
+  }
+
   function reorderDay(points, day, ids) {
     const selected = points.filter((p) => p.day === day);
     if (
@@ -102,6 +110,7 @@
     normalizePoints,
     insertPointByTime,
     updatePoint,
+    deletePoint,
     reorderDay,
     createExport,
     parseImport,

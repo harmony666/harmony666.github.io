@@ -13,23 +13,24 @@ class GeneratedHtmlTest(unittest.TestCase):
         subprocess.run([PYTHON, "generate_html.py"], cwd=ROOT, check=True)
         cls.html = (ROOT / "index.html").read_text(encoding="utf-8")
 
-    def test_inlines_core_and_service_library(self):
+    def test_inlines_core_and_baidu_map(self):
         self.assertIn("root.ItineraryCore", self.html)
-        self.assertIn("libraries=service", self.html)
+        self.assertIn("api.map.baidu.com/api?v=3.0&ak=", self.html)
+        self.assertNotIn("map.qq.com", self.html)
+        self.assertNotIn("libraries=service", self.html)
 
     def test_base_points_have_stable_ids_and_positions(self):
         self.assertIn("const BASE_POIS", self.html)
         self.assertIn('"id": "seed-1-1"', self.html)
         self.assertIn('"position": 1', self.html)
 
-    def test_route_has_numbered_pins_and_arrows(self):
+    def test_route_has_numbered_pins(self):
         self.assertIn("buildNumberedPinSvg", self.html)
-        self.assertIn("styles[p.id] = new TMap.MarkerStyle({", self.html)
-        self.assertIn("showArrow: true", self.html)
-        self.assertIn("arrowOptions: { width: 8, height: 5, space: 60 }", self.html)
+        self.assertIn("new BMap.Marker", self.html)
+        self.assertIn("new BMap.Icon", self.html)
 
     def test_map_uses_driving_routes_with_straight_fallback(self):
-        self.assertIn("TMap.service.Driving", self.html)
+        self.assertIn("BMap.DrivingRoute", self.html)
         self.assertIn("function buildDrivingRoutePath(list)", self.html)
         self.assertIn("function fetchDrivingSegment(from, to)", self.html)
         self.assertIn("buildDrivingRoutePath(list)", self.html)
@@ -47,8 +48,8 @@ class GeneratedHtmlTest(unittest.TestCase):
         fit_fn = self.html.split("function fitMapToPoints(list)", 1)[1].split(
             "function scheduleFitMapToPoints", 1
         )[0]
-        self.assertIn("padding: { top: 80, bottom: 80, left: 80, right: 80 }", fit_fn)
-        self.assertNotIn("padding: [70, 70, 70, 70]", self.html)
+        self.assertIn("map.setViewport", fit_fn)
+        self.assertIn("margins: [80, 80, 80, 80]", fit_fn)
 
     def test_render_map_handles_zero_and_one_point_days(self):
         fit_fn = self.html.split("function fitMapToPoints(list)", 1)[1].split(
@@ -57,14 +58,13 @@ class GeneratedHtmlTest(unittest.TestCase):
         self.assertIn("list.length === 0", fit_fn)
         self.assertIn("list.length === 1", fit_fn)
 
-    def test_render_map_closes_info_window_before_empty_day_returns(self):
+    def test_render_map_clears_overlays_before_fit(self):
         render_map = self.html.split("function renderMap(d, list){", 1)[1].split(
             "function selectDay(d){", 1)[0]
-        close_info = "if (infoWin) { infoWin.close(); infoWin = null; }"
-        self.assertIn(close_info, render_map)
+        self.assertIn("clearMapOverlays()", render_map)
         self.assertIn("scheduleFitMapToPoints(list)", render_map)
         self.assertLess(
-            render_map.index(close_info),
+            render_map.index("clearMapOverlays()"),
             render_map.index("scheduleFitMapToPoints(list)"),
         )
 
@@ -119,20 +119,17 @@ class GeneratedHtmlTest(unittest.TestCase):
         self.assertIn("selectDay(curDay)", reset_fn)
         self.assertIn("resetRemoteItinerary", reset_fn)
 
-    def test_map_styles_follow_rendered_points_and_empty_itinerary_has_default_center(self):
-        marker_styles = self.html.split("function markerStyles(", 1)[1].split(
-            "function polylineStyle()", 1
-        )[0]
+    def test_map_markers_follow_rendered_points_and_empty_itinerary_has_default_center(self):
         init_map = self.html.split("function initMap(){", 1)[1].split(
             "function renderTimeline", 1
         )[0]
         render_map = self.html.split("function renderMap(d, list){", 1)[1].split(
             "function selectDay(d){", 1
         )[0]
-        self.assertIn("points.forEach", marker_styles)
-        self.assertNotIn("BASE_POIS.forEach", marker_styles)
         self.assertIn("POIS[0] ||", init_map)
-        self.assertIn("multiMarker.setStyles(markerStyles(list))", render_map)
+        self.assertIn("list.forEach(function(p)", render_map)
+        self.assertIn("new BMap.Marker", render_map)
+        self.assertNotIn("BASE_POIS.forEach", render_map)
 
     def test_import_rolls_back_points_and_exact_storage_snapshot_after_late_failure(self):
         import_fn = self.html.split("async function importJson(file)", 1)[1].split(
@@ -182,12 +179,10 @@ class GeneratedHtmlTest(unittest.TestCase):
         self.assertIn("function closePointEditor()", self.html)
         self.assertIn("function beginMapPick()", self.html)
         self.assertIn("function searchPlaces(keyword, city)", self.html)
-        self.assertIn("new TMap.service.Suggestion({ pageSize: 8 })", self.html)
-        self.assertIn("suggestion.setRegion(city)", self.html)
-        self.assertIn("getSuggestions({ keyword: keyword })", self.html)
-        self.assertNotIn("getSuggestions({ keyword: keyword, region: city })", self.html)
-        self.assertIn("map.on('click', mapPickHandler)", self.html)
-        self.assertIn("map.off('click', mapPickHandler)", self.html)
+        self.assertIn("new BMap.LocalSearch", self.html)
+        self.assertIn("local.setPageCapacity(8)", self.html)
+        self.assertIn("map.addEventListener('click', mapPickHandler)", self.html)
+        self.assertIn("map.removeEventListener('click', mapPickHandler)", self.html)
 
     def test_timeline_and_tabs_survive_map_script_or_initialization_failure(self):
         select_day = self.html.split("function selectDay(d){", 1)[1].split(
@@ -219,17 +214,15 @@ class GeneratedHtmlTest(unittest.TestCase):
         self.assertIn("if (!isMapAvailable()) return;", fly_fn)
         self.assertLess(
             fly_fn.index("if (!isMapAvailable()) return;"),
-            fly_fn.index("map.setCenter"),
+            fly_fn.index("map.centerAndZoom"),
         )
 
-    def test_suggestion_uses_tencent_ad_info_city_before_fallbacks(self):
+    def test_suggestion_uses_baidu_poi_city_fallback(self):
         search_fn = self.html.split("function searchPlaces(keyword, city)", 1)[1].split(
             "async function submitPoint(formData)", 1
         )[0]
-        city_expression = (
-            "(item.ad_info && item.ad_info.city) || item.city || item.region || city"
-        )
-        self.assertIn(city_expression, search_fn)
+        self.assertIn("item.city || city", search_fn)
+        self.assertIn("bd09ToGcj02", search_fn)
 
     def test_submit_point_uses_safe_id_and_atomic_candidate_save(self):
         self.assertIn("async function submitPoint(formData)", self.html)
@@ -253,9 +246,13 @@ class GeneratedHtmlTest(unittest.TestCase):
         self.assertNotIn(r"/^\d{2}:\d{2}$/.test(time)", submit_fn)
         self.assertIn("refreshDayView(day)", submit_fn)
 
-    def test_timeline_cards_support_edit_and_time_sorting(self):
+    def test_timeline_cards_support_edit_delete_and_time_sorting(self):
         self.assertIn('class="edit-btn"', self.html)
+        self.assertIn('class="del-btn"', self.html)
         self.assertIn("function openPointEditorForEdit(pointId)", self.html)
+        self.assertIn("function deletePointById(pointId)", self.html)
+        self.assertIn("ItineraryCore.deletePoint", self.html)
+        self.assertIn("确定删除：", self.html)
         self.assertIn('id="pointId"', self.html)
         self.assertNotIn('draggable="true"', self.html)
         self.assertNotIn("function bindTimelineDrag", self.html)
@@ -267,6 +264,7 @@ class GeneratedHtmlTest(unittest.TestCase):
             "function renderMap", 1
         )[0]
         self.assertIn("openPointEditorForEdit", timeline_fn)
+        self.assertIn("deletePointById", timeline_fn)
         self.assertIn("refreshDayView(day)", self.html)
 
     def test_untrusted_content_is_escaped_in_timeline_info_and_search(self):

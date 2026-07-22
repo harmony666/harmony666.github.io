@@ -37,6 +37,21 @@ test('normalizePoints sorts each day by time', () => {
   assert.deepEqual(result.map((p) => p.position), [1, 2, 3]);
 });
 
+test('deletePoint removes id and renumbers the day', () => {
+  const points = [
+    point('a', 1, '09:00', 1),
+    point('b', 1, '11:00', 2),
+    point('c', 2, '10:00', 1),
+  ];
+  const result = Core.deletePoint(points, 'a');
+  assert.deepEqual(
+    result.filter((p) => p.day === 1).map((p) => [p.id, p.position]),
+    [['b', 1]],
+  );
+  assert.equal(result.find((p) => p.id === 'c').day, 2);
+  assert.throws(() => Core.deletePoint(points, 'missing'), /不存在/);
+});
+
 test('updatePoint edits fields and reorders by time', () => {
   const points = [
     point('a', 1, '09:00', 1),

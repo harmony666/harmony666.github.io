@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>武汉 → 山东 9日旅行计划</title>
-<script src="https://map.qq.com/api/gljs?v=1&key=B6VBZ-V75KG-HBEQP-IRLIB-ANBLZ-W6BD5&libraries=service"></script>
+<script src="https://api.map.baidu.com/api?v=3.0&ak=bzv7nHMM4yqiTtyQfsxAU6u8m2RutOkB"></script>
 <style>
 :root{
   --ink:#0a2540; --sub:#425466; --muted:#8898aa; --line:#e6eaf2;
@@ -72,10 +72,14 @@ body{
 .card .ds{color:var(--sub); font-size:12.5px; margin-top:4px; line-height:1.5; word-break:break-word}
 .tag{font-size:10.5px; font-weight:700; color:#fff; background:var(--c); border-radius:7px; padding:2px 7px; letter-spacing:.5px}
 .card .num{position:absolute; right:12px; top:12px; width:24px; height:24px; border-radius:50%;
-  display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; color:#fff; background:var(--c)}
-.card .edit-btn{position:absolute; right:44px; top:12px; border:1px solid var(--line); background:#fff;
-  color:var(--sub); border-radius:8px; padding:2px 8px; font-size:11px; cursor:pointer}
+  display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; color:#fff; background:var(--c); z-index:1}
+.card .card-actions{position:absolute; right:44px; top:12px; display:flex; flex-direction:row; align-items:center;
+  gap:8px; z-index:2}
+.card .edit-btn,.card .del-btn{position:static; flex:0 0 auto; border:1px solid var(--line); background:#fff;
+  color:var(--sub); border-radius:8px; padding:4px 10px; font-size:11px; line-height:1.2; cursor:pointer;
+  white-space:nowrap; box-shadow:none}
 .card .edit-btn:hover{border-color:#635bff; color:var(--ink)}
+.card .del-btn:hover{border-color:#ff5a5f; color:#c33}
 .card.hotel-card{background:linear-gradient(135deg, #fff8e6 0%, #ffffff 60%);}
 .card.hotel-card .hotel-meta{font-size:12px; color:var(--sub); margin-top:6px; display:flex; gap:10px; flex-wrap:wrap}
 .card.hotel-card .hotel-meta b{color:var(--ink)}
@@ -146,8 +150,12 @@ body{
   }
   .map-wrap{border-left:none}
   .timeline{padding:14px 12px 80px}
-  .card{padding:11px 12px; padding-right:40px}
-  .card .edit-btn{right:12px; top:40px}
+  .card{padding:11px 12px 48px; padding-right:40px}
+  .card .card-actions{
+    left:62px; right:12px; top:auto; bottom:10px;
+    justify-content:flex-end; gap:10px;
+  }
+  .card .edit-btn,.card .del-btn{padding:8px 14px; font-size:13px; min-height:36px}
   .card .time{flex:0 0 44px; font-size:12px}
   .day-head .d{font-size:18px}
   .point-editor{width:100%; padding:18px 14px calc(18px + env(safe-area-inset-bottom,0px))}
@@ -318,6 +326,14 @@ body{
     return insertPointByTime(without, point);
   }
 
+  function deletePoint(points, id) {
+    if (typeof id !== 'string' || !id.trim()) throw new Error('点 ID 必须是非空字符串');
+    const target = id.trim();
+    const without = points.filter((p) => p.id !== target);
+    if (without.length === points.length) throw new Error('要删除的行程点不存在');
+    return normalizePoints(without);
+  }
+
   function reorderDay(points, day, ids) {
     const selected = points.filter((p) => p.day === day);
     if (
@@ -360,6 +376,7 @@ body{
     normalizePoints,
     insertPointByTime,
     updatePoint,
+    deletePoint,
     reorderDay,
     createExport,
     parseImport,
@@ -368,7 +385,7 @@ body{
 });
 </script>
 <script>
-const KEY = "B6VBZ-V75KG-HBEQP-IRLIB-ANBLZ-W6BD5";
+const KEY = "bzv7nHMM4yqiTtyQfsxAU6u8m2RutOkB";
 const BASE_POIS = [{"id": "seed-1-1", "day": 1, "cat": "transit", "time": "11:05", "title": "抵达济南", "desc": "航班 9:40 武汉天河→11:05 济南遥墙，票价约¥1117；济南不住宿，行李随身/站存", "city": "济南", "name": "济南遥墙国际机场", "lat": 36.857395, "lng": 117.218815, "position": 1}, {"id": "seed-1-2", "day": 1, "cat": "culture", "time": "13:00", "title": "趵突泉", "desc": "天下第一泉，泉城标志性名泉", "city": "济南", "name": "趵突泉", "lat": 36.660958, "lng": 117.016158, "position": 2}, {"id": "seed-1-3", "day": 1, "cat": "scenic", "time": "14:30", "title": "五龙潭公园", "desc": "清泉绿潭，闹市中的幽静园林，紧邻趵突泉", "city": "济南", "name": "五龙潭公园", "lat": 36.66605, "lng": 117.01482, "position": 3}, {"id": "seed-1-4", "day": 1, "cat": "food", "time": "15:30", "title": "芙蓉街", "desc": "老城美食街，油旋/把子肉/鲁菜小吃", "city": "济南", "name": "芙蓉街", "lat": 36.666999, "lng": 117.023781, "position": 4}, {"id": "seed-1-5", "day": 1, "cat": "scenic", "time": "17:00", "title": "大明湖", "desc": "四面荷花三面柳，夏雨荷故地", "city": "济南", "name": "大明湖", "lat": 36.681356, "lng": 117.029124, "position": 5}, {"id": "seed-1-6", "day": 1, "cat": "food", "time": "19:00", "title": "宽厚里", "desc": "晚饭与夜逛；之后前往济南站候车", "city": "济南", "name": "宽厚里", "lat": 36.663521, "lng": 117.031124, "position": 6}, {"id": "seed-1-7", "day": 1, "cat": "scenic", "time": "20:30", "title": "泉城广场", "desc": "泉城路夜景；顺路去火车站", "city": "济南", "name": "泉城广场", "lat": 36.661304, "lng": 117.022195, "position": 7}, {"id": "seed-1-8", "day": 1, "cat": "transit", "time": "23:30", "title": "济南站候车出发", "desc": "约23:30到站候车；0:41 硬卧→当日 8:55 威海，票价约¥346", "city": "济南", "name": "济南站", "lat": 36.67072, "lng": 116.990934, "position": 8}, {"id": "seed-2-1", "day": 2, "cat": "transit", "time": "08:55", "title": "抵达威海·取车", "desc": "8:55 到站；9:30 一嗨取车秦PLUS(已订 ¥1126，用至8/7 21:00)；行李放车上，不必先去酒店", "city": "威海", "name": "威海站", "lat": 37.426952, "lng": 122.143769, "position": 1}, {"id": "seed-2-2", "day": 2, "cat": "culture", "time": "10:30", "title": "刘公岛", "desc": "甲午战争纪念地，北洋海军遗址（酒店12点后入住）", "city": "威海", "name": "刘公岛", "lat": 37.504472, "lng": 122.190461, "position": 2}, {"id": "seed-2-3", "day": 2, "cat": "scenic", "time": "14:30", "title": "威海公园", "desc": "海滨带状公园，画中画地标", "city": "威海", "name": "威海公园", "lat": 37.46539, "lng": 122.144826, "position": 3}, {"id": "seed-2-4", "day": 2, "cat": "scenic", "time": "16:00", "title": "幸福门", "desc": "威海地标拱门，登高看海", "city": "威海", "name": "幸福门广场", "lat": 37.501473, "lng": 122.127677, "position": 4}, {"id": "seed-2-5", "day": 2, "cat": "culture", "time": "17:30", "title": "环翠楼", "desc": "城市观景楼，俯瞰威海湾；随后西行入住", "city": "威海", "name": "环翠楼公园", "lat": 37.505013, "lng": 122.108185, "position": 5}, {"id": "seed-2-6", "day": 2, "cat": "hotel", "time": "19:30", "title": "威海住宿·山大路", "desc": "傍晚入住；山大路15-6号建设银行旁(已订 ¥370/2晚，住8/2–8/4)", "city": "威海", "name": "高新区山大路15-6号", "lat": 37.524481, "lng": 122.06124, "position": 6}, {"id": "seed-3-1", "day": 3, "cat": "hotel", "time": "07:30", "title": "威海住宿·山大路(出发)", "desc": "酒店出发，行李可放车上；东线单向推进少回头路", "city": "威海", "name": "高新区山大路15-6号", "lat": 37.524481, "lng": 122.06124, "position": 1}, {"id": "seed-3-2", "day": 3, "cat": "scenic", "time": "09:30", "title": "那香海", "desc": "钻石沙滩，滨海度假带", "city": "威海", "name": "那香海", "lat": 37.408857, "lng": 122.408466, "position": 2}, {"id": "seed-3-3", "day": 3, "cat": "scenic", "time": "12:00", "title": "鸡鸣岛", "desc": "海岛渔村，《爸爸去哪儿》取景", "city": "威海", "name": "鸡鸣岛", "lat": 37.430813, "lng": 122.484874, "position": 3}, {"id": "seed-3-4", "day": 3, "cat": "scenic", "time": "14:30", "title": "成山头", "desc": "天之尽头，中国大陆最东端；之后偏西回城", "city": "威海", "name": "成山头", "lat": 37.402266, "lng": 122.698754, "position": 4}, {"id": "seed-3-5", "day": 3, "cat": "scenic", "time": "18:00", "title": "国际海水浴场", "desc": "傍晚踏浪游泳，日落最美；近酒店", "city": "威海", "name": "国际海水浴场", "lat": 37.529038, "lng": 122.045212, "position": 5}, {"id": "seed-3-6", "day": 3, "cat": "hotel", "time": "20:00", "title": "威海住宿·山大路(回宿)", "desc": "当日结束，返回山大路酒店过夜", "city": "威海", "name": "高新区山大路15-6号", "lat": 37.524481, "lng": 122.06124, "position": 6}, {"id": "seed-4-1", "day": 4, "cat": "hotel", "time": "07:30", "title": "威海住宿·山大路(退房)", "desc": "退房，行李上车；下午自驾赴烟台，烟台酒店12点后入住", "city": "威海", "name": "高新区山大路15-6号", "lat": 37.524481, "lng": 122.06124, "position": 1}, {"id": "seed-4-2", "day": 4, "cat": "scenic", "time": "08:30", "title": "猫头山", "desc": "威海最美海岸线观景公路，随后自驾赴烟台", "city": "威海", "name": "猫头山", "lat": 37.555, "lng": 122.1479, "position": 2}, {"id": "seed-4-3", "day": 4, "cat": "culture", "time": "13:00", "title": "烟台山", "desc": "近代开埠领事馆建筑群+灯塔；行李在车上，可先玩后入住", "city": "烟台", "name": "烟台山", "lat": 37.546603, "lng": 121.402332, "position": 3}, {"id": "seed-4-4", "day": 4, "cat": "food", "time": "15:30", "title": "朝阳街", "desc": "红酒文化街区，洋房美食", "city": "烟台", "name": "朝阳街", "lat": 37.544034, "lng": 121.401875, "position": 4}, {"id": "seed-4-5", "day": 4, "cat": "culture", "time": "17:00", "title": "所城里", "desc": "烟台古城，明代所城肌理", "city": "烟台", "name": "所城里", "lat": 37.536403, "lng": 121.399737, "position": 5}, {"id": "seed-4-6", "day": 4, "cat": "hotel", "time": "20:00", "title": "烟台住宿·青年南路", "desc": "傍晚入住；芝罘区世回尧街道青年南路169号(已订 ¥601.65/3晚，住8/4–8/7)", "city": "烟台", "name": "青年南路169号", "lat": 37.507662, "lng": 121.360793, "position": 6}, {"id": "seed-5-1", "day": 5, "cat": "hotel", "time": "08:30", "title": "烟台住宿·青年南路(出发)", "desc": "酒店出发，市区文化与海滨一天", "city": "烟台", "name": "青年南路169号", "lat": 37.507662, "lng": 121.360793, "position": 1}, {"id": "seed-5-2", "day": 5, "cat": "culture", "time": "09:30", "title": "张裕酒文化博物馆", "desc": "中国葡萄酒工业发源地", "city": "烟台", "name": "张裕酒文化博物馆", "lat": 37.541816, "lng": 121.405855, "position": 2}, {"id": "seed-5-3", "day": 5, "cat": "scenic", "time": "11:30", "title": "第一海水浴场", "desc": "烟台核心浴场，沙滩漫步", "city": "烟台", "name": "第一海水浴场", "lat": 37.536521, "lng": 121.419581, "position": 3}, {"id": "seed-5-4", "day": 5, "cat": "shop", "time": "13:00", "title": "渔人码头(午餐)", "desc": "烟台山旁欧风码头，海鲜西餐", "city": "烟台", "name": "渔人码头", "lat": 37.5462, "lng": 121.4083, "position": 4}, {"id": "seed-5-5", "day": 5, "cat": "shop", "time": "19:00", "title": "大悦城", "desc": "滨海商圈，夜生活与购物", "city": "烟台", "name": "烟台大悦城", "lat": 37.54555, "lng": 121.387269, "position": 5}, {"id": "seed-5-6", "day": 5, "cat": "hotel", "time": "21:30", "title": "烟台住宿·青年南路(回宿)", "desc": "当日结束，返回青年南路酒店", "city": "烟台", "name": "青年南路169号", "lat": 37.507662, "lng": 121.360793, "position": 6}, {"id": "seed-6-1", "day": 6, "cat": "hotel", "time": "08:00", "title": "烟台住宿·青年南路(出发)", "desc": "酒店出发；上午养马岛，下午蓬莱", "city": "烟台", "name": "青年南路169号", "lat": 37.507662, "lng": 121.360793, "position": 1}, {"id": "seed-6-2", "day": 6, "cat": "scenic", "time": "09:00", "title": "养马岛", "desc": "东方马尔代夫，环岛滨海路（上午）", "city": "烟台", "name": "养马岛", "lat": 37.466471, "lng": 121.619616, "position": 2}, {"id": "seed-6-3", "day": 6, "cat": "culture", "time": "13:30", "title": "蓬莱阁", "desc": "我国古代四大名楼，八仙故里（下午）", "city": "烟台", "name": "蓬莱阁", "lat": 37.826972, "lng": 120.754009, "position": 3}, {"id": "seed-6-4", "day": 6, "cat": "scenic", "time": "15:45", "title": "八仙过海景区", "desc": "海上园林，八仙过海传说地；与蓬莱阁同区顺路", "city": "烟台", "name": "八仙过海景区", "lat": 37.825645, "lng": 120.775532, "position": 4}, {"id": "seed-6-5", "day": 6, "cat": "hotel", "time": "21:00", "title": "烟台住宿·青年南路(回宿)", "desc": "自蓬莱回城过夜", "city": "烟台", "name": "青年南路169号", "lat": 37.507662, "lng": 121.360793, "position": 5}, {"id": "seed-7-1", "day": 7, "cat": "hotel", "time": "09:00", "title": "烟台住宿·青年南路(退房)", "desc": "退房，行李上车；今日回威海还车并夜宿站旁", "city": "烟台", "name": "青年南路169号", "lat": 37.507662, "lng": 121.360793, "position": 1}, {"id": "seed-7-2", "day": 7, "cat": "food", "time": "18:00", "title": "韩乐坊", "desc": "威海韩风夜市；请在 21:00 前完成一嗨还车", "city": "威海", "name": "韩乐坊", "lat": 37.429351, "lng": 122.152957, "position": 2}, {"id": "seed-7-3", "day": 7, "cat": "hotel", "time": "20:30", "title": "威海住宿·时代小驿", "desc": "还车后入住时代小驿民宿(馨海家苑)，已订 ¥108；近火车站，便于明早赶车", "city": "威海", "name": "馨海家苑", "lat": 37.428263, "lng": 122.143312, "position": 3}, {"id": "seed-8-1", "day": 8, "cat": "hotel", "time": "07:30", "title": "威海住宿·时代小驿(出发)", "desc": "早餐后前往威海站；早晨时间紧，不做远途景点", "city": "威海", "name": "馨海家苑", "lat": 37.428263, "lng": 122.143312, "position": 1}, {"id": "seed-8-2", "day": 8, "cat": "transit", "time": "09:19", "title": "威海站发车", "desc": "9:19 硬卧→次日 5:03 武昌，票价约¥577", "city": "威海", "name": "威海站", "lat": 37.426952, "lng": 122.143769, "position": 2}, {"id": "seed-9-1", "day": 9, "cat": "transit", "time": "05:03", "title": "抵达武昌", "desc": "行程结束，平安到家；吃饭门票预算约¥1500；总预算约¥5745.65", "city": "武汉", "name": "武昌站", "lat": 30.528671, "lng": 114.317792, "position": 1}];
 const DAY_META = {"1": {"date": "8月1日", "sub": "济南 · 一日泉城夜赶火车", "count": 8}, "2": {"date": "8月2日", "sub": "威海 · 到站取车登岛入住", "count": 6}, "3": {"date": "8月3日", "sub": "威海 · 东线海角少回头", "count": 6}, "4": {"date": "8月4日", "sub": "威海→烟台 · 跨城入住", "count": 6}, "5": {"date": "8月5日", "sub": "烟台 · 酒博海滨夜生活", "count": 6}, "6": {"date": "8月6日", "sub": "烟台 · 养马岛+蓬莱", "count": 5}, "7": {"date": "8月7日", "sub": "烟台→威海 · 还车夜宿", "count": 3}, "8": {"date": "8月8日", "sub": "威海 · 站旁启程", "count": 2}, "9": {"date": "8月9日", "sub": "武汉 · 平安到家", "count": 1}};
 const CATS = {"scenic": {"label": "景点", "color": "#0aa3ff", "soft": "#e6f6ff"}, "food": {"label": "美食", "color": "#ff6b6b", "soft": "#ffecec"}, "culture": {"label": "文化", "color": "#7b61ff", "soft": "#f0ebff"}, "shop": {"label": "购物", "color": "#20c997", "soft": "#e7fbf4"}, "transit": {"label": "交通", "color": "#8898aa", "soft": "#eef1f5"}, "hotel": {"label": "住宿", "color": "#f59e0b", "soft": "#fff4dc"}};
@@ -766,7 +783,9 @@ DAYS.forEach(function(d){
   tabsEl.appendChild(t);
 });
 
-let map, multiMarker, multiPoly, infoWin;
+let map, infoWin;
+let mapMarkers = [];
+let mapPolyline = null;
 let mapReady = false;
 let curDay = null;
 let mapPickHandler = null;
@@ -778,7 +797,7 @@ function setEditorMessage(message) {
 }
 
 function isMapAvailable() {
-  return mapReady && typeof TMap !== 'undefined' && !!map && !!multiMarker && !!multiPoly;
+  return mapReady && typeof BMap !== 'undefined' && !!map;
 }
 
 function updateMapControls() {
@@ -792,9 +811,30 @@ function showMapUnavailable(message) {
   updateMapControls();
 }
 
+function gcj02ToBd09(lng, lat) {
+  const x = Number(lng);
+  const y = Number(lat);
+  const z = Math.sqrt(x * x + y * y) + 0.00002 * Math.sin(y * Math.PI * 3000.0 / 180.0);
+  const theta = Math.atan2(y, x) + 0.000003 * Math.cos(x * Math.PI * 3000.0 / 180.0);
+  return { lng: z * Math.cos(theta) + 0.0065, lat: z * Math.sin(theta) + 0.006 };
+}
+
+function bd09ToGcj02(lng, lat) {
+  const x = Number(lng) - 0.0065;
+  const y = Number(lat) - 0.006;
+  const z = Math.sqrt(x * x + y * y) - 0.00002 * Math.sin(y * Math.PI * 3000.0 / 180.0);
+  const theta = Math.atan2(y, x) - 0.000003 * Math.cos(x * Math.PI * 3000.0 / 180.0);
+  return { lng: z * Math.cos(theta), lat: z * Math.sin(theta) };
+}
+
+function toBdPoint(lat, lng) {
+  const bd = gcj02ToBd09(lng, lat);
+  return new BMap.Point(bd.lng, bd.lat);
+}
+
 function removeMapPickHandler() {
-  if (mapPickHandler && map && typeof map.off === 'function') {
-    map.off('click', mapPickHandler);
+  if (mapPickHandler && map && typeof map.removeEventListener === 'function') {
+    map.removeEventListener('click', mapPickHandler);
   }
   mapPickHandler = null;
 }
@@ -851,32 +891,54 @@ function refreshDayView(day) {
   selectDay(day);
 }
 
+async function deletePointById(pointId) {
+  const p = POIS.find(function(item){ return item.id === pointId; });
+  if (!p) return;
+  if (!window.confirm('确定删除：' + p.title + '？')) return;
+  const previousPoints = POIS;
+  const previousVersion = remoteVersion;
+  try {
+    const candidate = ItineraryCore.deletePoint(previousPoints, p.id);
+    if (!(await persistPoints(candidate))) {
+      POIS = previousPoints;
+      remoteVersion = previousVersion;
+      setSaveStatus('删除失败，变更未提交，请重试或导出 JSON', true);
+      return;
+    }
+    POIS = candidate;
+    document.getElementById('bPoi').textContent = POIS.length;
+    refreshDayView(p.day);
+  } catch (e) {
+    POIS = previousPoints;
+    remoteVersion = previousVersion;
+    setSaveStatus('删除失败：' + (e && e.message || e), true);
+  }
+}
+
 function beginMapPick() {
   removeMapPickHandler();
-  if (!map || typeof map.on !== 'function' || typeof map.off !== 'function') {
+  if (!isMapAvailable()) {
     setEditorMessage('地图不可用，请手动输入经纬度');
     return;
   }
   mapPickHandler = function(e) {
-    const location = e && (e.latLng || e.position);
-    if (!location) {
+    if (!e || !e.point) {
       setEditorMessage('未能取得地图坐标，请重试');
       return;
     }
-    const lat = typeof location.getLat === 'function' ? location.getLat() : location.lat;
-    const lng = typeof location.getLng === 'function' ? location.getLng() : location.lng;
-    document.getElementById('pointLat').value = lat;
-    document.getElementById('pointLng').value = lng;
+    const gcj = bd09ToGcj02(e.point.lng, e.point.lat);
+    document.getElementById('pointLat').value = gcj.lat;
+    document.getElementById('pointLng').value = gcj.lng;
     pointSource = 'map_click';
-    map.off('click', mapPickHandler);
+    map.removeEventListener('click', mapPickHandler);
     mapPickHandler = null;
     setEditorMessage('已选择地图坐标');
   };
-  map.on('click', mapPickHandler);
+  map.addEventListener('click', mapPickHandler);
   setEditorMessage('请在地图上点击位置');
 }
 
-async function searchPlaces(keyword, city) {
+function searchPlaces(keyword, city) {
   const results = document.getElementById('placeResults');
   results.replaceChildren();
   keyword = String(keyword || '').trim();
@@ -885,51 +947,52 @@ async function searchPlaces(keyword, city) {
     setEditorMessage('请输入搜索关键词');
     return;
   }
-  if (typeof TMap === 'undefined' || !TMap.service || !TMap.service.Suggestion) {
+  if (typeof BMap === 'undefined' || typeof BMap.LocalSearch !== 'function') {
     setEditorMessage('地点搜索暂不可用');
     return;
   }
   setEditorMessage('正在搜索…');
-  try {
-    const suggestion = new TMap.service.Suggestion({ pageSize: 8 });
-    suggestion.setRegion(city);
-    const response = await suggestion.getSuggestions({ keyword: keyword });
-    const items = (response && response.data || []).slice(0, 8);
-    if (!items.length) {
-      setEditorMessage('未找到地点，请更换关键词');
-      return;
+  const local = new BMap.LocalSearch(city || map || '全国', {
+    onSearchComplete: function(res) {
+      if (local.getStatus() !== BMAP_STATUS_SUCCESS) {
+        setEditorMessage('未找到地点，请更换关键词');
+        return;
+      }
+      const n = Math.min(res.getCurrentNumPois(), 8);
+      if (!n) {
+        setEditorMessage('未找到地点，请更换关键词');
+        return;
+      }
+      for (let i = 0; i < n; i++) {
+        const item = res.getPoi(i);
+        if (!item || !item.point) continue;
+        const gcj = bd09ToGcj02(item.point.lng, item.point.lat);
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'place-result';
+        const title = document.createElement('strong');
+        title.textContent = item.title || '';
+        const address = document.createElement('small');
+        address.textContent = item.address || '';
+        button.append(title, address);
+        button.addEventListener('click', function() {
+          document.getElementById('pointTitle').value = item.title || '';
+          document.getElementById('pointCity').value = item.city || city;
+          document.getElementById('pointLat').value = gcj.lat;
+          document.getElementById('pointLng').value = gcj.lng;
+          pointSource = 'place_search';
+          if (map) {
+            map.centerAndZoom(item.point, 15);
+          }
+          setEditorMessage('已选择搜索结果');
+        });
+        results.appendChild(button);
+      }
+      setEditorMessage('');
     }
-    items.forEach(function(item) {
-      const location = item.location || item.latLng || {};
-      const lat = typeof location.getLat === 'function' ? location.getLat() : location.lat;
-      const lng = typeof location.getLng === 'function' ? location.getLng() : location.lng;
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'place-result';
-      const title = document.createElement('strong');
-      title.textContent = item.title || item.name || '';
-      const address = document.createElement('small');
-      address.textContent = item.address || '';
-      button.append(title, address);
-      button.addEventListener('click', function() {
-        document.getElementById('pointTitle').value = item.title || item.name || '';
-        document.getElementById('pointCity').value =
-          (item.ad_info && item.ad_info.city) || item.city || item.region || city;
-        document.getElementById('pointLat').value = lat;
-        document.getElementById('pointLng').value = lng;
-        pointSource = 'place_search';
-        if (map && Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))) {
-          map.setCenter(new TMap.LatLng(Number(lat), Number(lng)));
-          map.setZoom(15);
-        }
-        setEditorMessage('已选择搜索结果');
-      });
-      results.appendChild(button);
-    });
-    setEditorMessage('');
-  } catch (e) {
-    setEditorMessage('搜索失败，请稍后重试');
-  }
+  });
+  local.setPageCapacity(8);
+  local.search(keyword);
 }
 
 async function submitPoint(formData) {
@@ -1002,36 +1065,8 @@ document.getElementById('pointForm').addEventListener('submit', function(e) {
   submitPoint(new FormData(e.currentTarget));
 });
 
-function markerStyles(points) {
-  const styles = {};
-  points.forEach(function(p) {
-    const svg = ItineraryCore.buildNumberedPinSvg(p.position, CATS[p.cat].color);
-    styles[p.id] = new TMap.MarkerStyle({
-      src: 'data:image/svg+xml,' + encodeURIComponent(svg),
-      width: 36, height: 42, anchor: { x: 18, y: 41 }
-    });
-  });
-  return styles;
-}
-
-function polylineStyle() {
-  return new TMap.PolylineStyle({
-    width: 7,
-    color: '#ff5a5f',
-    borderWidth: 3,
-    borderColor: '#ffffff',
-    showArrow: true,
-    arrowOptions: { width: 8, height: 5, space: 60 },
-    lineCap: 'round',
-    lineJoin: 'round'
-  });
-}
-
 function straightSegment(from, to) {
-  return [
-    new TMap.LatLng(Number(from.lat), Number(from.lng)),
-    new TMap.LatLng(Number(to.lat), Number(to.lng))
-  ];
+  return [toBdPoint(from.lat, from.lng), toBdPoint(to.lat, to.lng)];
 }
 
 function pointsRouteKey(list) {
@@ -1040,53 +1075,42 @@ function pointsRouteKey(list) {
   }).join('|');
 }
 
-function toLatLngPoint(pt) {
-  if (!pt) return null;
-  if (typeof pt.getLat === 'function' && typeof pt.getLng === 'function') {
-    return new TMap.LatLng(pt.getLat(), pt.getLng());
-  }
-  if (Number.isFinite(Number(pt.lat)) && Number.isFinite(Number(pt.lng))) {
-    return new TMap.LatLng(Number(pt.lat), Number(pt.lng));
-  }
-  return null;
-}
-
-function extractDrivingPolyline(result) {
-  if (!result) return null;
-  const routes = (result.result && result.result.routes) || result.routes || [];
-  const route = routes[0];
-  if (!route || !route.polyline) return null;
-  const raw = route.polyline;
-  if (!Array.isArray(raw) || raw.length < 2) return null;
-  if (typeof raw[0] === 'number') return null;
-  const path = [];
-  for (let i = 0; i < raw.length; i++) {
-    const pt = toLatLngPoint(raw[i]);
-    if (pt) path.push(pt);
-  }
-  return path.length >= 2 ? path : null;
-}
-
 const drivingRouteCache = Object.create(null);
 let routeRequestSeq = 0;
 
-async function fetchDrivingSegment(from, to) {
+function fetchDrivingSegment(from, to) {
   const span = Math.abs(Number(from.lat) - Number(to.lat))
     + Math.abs(Number(from.lng) - Number(to.lng));
-  if (span < 0.0002) return straightSegment(from, to);
-  if (typeof TMap === 'undefined' || !TMap.service || !TMap.service.Driving) {
-    return straightSegment(from, to);
+  if (span < 0.0002 || !isMapAvailable() || typeof BMap.DrivingRoute !== 'function') {
+    return Promise.resolve(straightSegment(from, to));
   }
-  try {
-    const driving = new TMap.service.Driving({ policy: 'LEAST_TIME' });
-    const result = await driving.search({
-      from: new TMap.LatLng(Number(from.lat), Number(from.lng)),
-      to: new TMap.LatLng(Number(to.lat), Number(to.lng))
+  return new Promise(function(resolve) {
+    const driving = new BMap.DrivingRoute(map, {
+      onSearchComplete: function(results) {
+        if (driving.getStatus() !== BMAP_STATUS_SUCCESS) {
+          resolve(straightSegment(from, to));
+          return;
+        }
+        const plan = results && results.getPlan(0);
+        if (!plan) {
+          resolve(straightSegment(from, to));
+          return;
+        }
+        const path = [];
+        for (let i = 0; i < plan.getNumRoutes(); i++) {
+          const route = plan.getRoute(i);
+          const pts = route.getPath();
+          for (let j = 0; j < pts.length; j++) path.push(pts[j]);
+        }
+        resolve(path.length >= 2 ? path : straightSegment(from, to));
+      }
     });
-    const path = extractDrivingPolyline(result);
-    if (path) return path;
-  } catch (_) {}
-  return straightSegment(from, to);
+    try {
+      driving.search(toBdPoint(from.lat, from.lng), toBdPoint(to.lat, to.lng));
+    } catch (_) {
+      resolve(straightSegment(from, to));
+    }
+  });
 }
 
 async function buildDrivingRoutePath(list) {
@@ -1115,30 +1139,15 @@ function setMapRouteTitle(d, list, suffix) {
 
 function fitMapToPoints(list) {
   if (!isMapAvailable() || !list || list.length === 0) return;
-  const lats = list.map(function(p){ return Number(p.lat); });
-  const lngs = list.map(function(p){ return Number(p.lng); });
-  const minLat = Math.min.apply(null, lats);
-  const maxLat = Math.max.apply(null, lats);
-  const minLng = Math.min.apply(null, lngs);
-  const maxLng = Math.max.apply(null, lngs);
-  const centerLat = (minLat + maxLat) / 2;
-  const centerLng = (minLng + maxLng) / 2;
-  if (list.length === 1 || (maxLat - minLat < 0.0005 && maxLng - minLng < 0.0005)) {
-    map.setCenter(new TMap.LatLng(centerLat, centerLng));
-    map.setZoom(14);
+  const pts = list.map(function(p){ return toBdPoint(p.lat, p.lng); });
+  if (list.length === 1) {
+    map.centerAndZoom(pts[0], 14);
     return;
   }
-  const sw = new TMap.LatLng(minLat, minLng);
-  const ne = new TMap.LatLng(maxLat, maxLng);
   try {
-    map.fitBounds(new TMap.LatLngBounds(sw, ne), {
-      padding: { top: 80, bottom: 80, left: 80, right: 80 }
-    });
+    map.setViewport(pts, { margins: [80, 80, 80, 80] });
   } catch (e) {
-    const span = Math.max(maxLat - minLat, maxLng - minLng);
-    const zoom = span < 0.04 ? 14 : span < 0.09 ? 13 : span < 0.25 ? 12 : span < 0.8 ? 10 : span < 2 ? 8 : 7;
-    map.setCenter(new TMap.LatLng(centerLat, centerLng));
-    map.setZoom(zoom);
+    map.centerAndZoom(pts[0], 12);
   }
 }
 
@@ -1150,19 +1159,25 @@ function scheduleFitMapToPoints(list) {
   });
 }
 
+function clearMapOverlays() {
+  if (!map) return;
+  map.clearOverlays();
+  mapMarkers = [];
+  mapPolyline = null;
+  infoWin = null;
+}
+
 function initMap(){
   mapReady = false;
   const c0 = POIS[0] || {lat: 30.5928, lng: 114.3055};
-  map = new TMap.Map('map', { center: new TMap.LatLng(c0.lat, c0.lng), zoom: 12 });
-  multiMarker = new TMap.MultiMarker({ map: map, styles: markerStyles(POIS), geometries: [] });
-  multiPoly = new TMap.MultiPolyline({ map: map, styles: { route: polylineStyle() }, geometries: [] });
-  try { multiPoly.setZIndex(100); } catch(_) {}
-  try { multiMarker.setZIndex(200); } catch(_) {}
-  multiMarker.on('click', function(e){
-    const p = e.geometry && e.geometry.properties;
-    if (p) flyTo(p.day, p.position);
+  map = new BMap.Map('map');
+  map.centerAndZoom(toBdPoint(c0.lat, c0.lng), 12);
+  map.enableScrollWheelZoom(true);
+  map.addControl(new BMap.NavigationControl());
+  map.addControl(new BMap.ScaleControl());
+  window.addEventListener('resize', function(){
+    try { map.checkResize && map.checkResize(); } catch(_) {}
   });
-  window.addEventListener('resize', function(){ try{ map.invalidateSize && map.invalidateSize(); }catch(_){} });
   mapReady = true;
   updateMapControls();
   return true;
@@ -1195,8 +1210,10 @@ function renderTimeline(d, list){
           + '</div>';
       }
     }
-    html += '</div><button type="button" class="edit-btn" data-id="'+escapeHtml(p.id)+'">编辑</button>'
-      + '<div class="num">'+p.position+'</div></div>';
+    html += '</div><div class="card-actions">'
+      + '<button type="button" class="edit-btn" data-id="'+escapeHtml(p.id)+'">编辑</button>'
+      + '<button type="button" class="del-btn" data-id="'+escapeHtml(p.id)+'">删除</button>'
+      + '</div><div class="num">'+p.position+'</div></div>';
   });
   t.innerHTML = html;
   t.scrollTop = 0;
@@ -1212,6 +1229,12 @@ function renderTimeline(d, list){
       openPointEditorForEdit(btn.dataset.id);
     });
   });
+  Array.from(t.querySelectorAll('.del-btn')).forEach(function(btn){
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      deletePointById(btn.dataset.id);
+    });
+  });
 }
 
 function renderMap(d, list){
@@ -1220,46 +1243,51 @@ function renderMap(d, list){
     return;
   }
   setMapRouteTitle(d, list, '');
-
-  const geoms = list.map(function(p){
-    return {
-      id: p.id,
-      styleId: p.id,
-      position: new TMap.LatLng(p.lat, p.lng),
-      properties: p
-    };
-  });
-  const straightPaths = list.map(function(p){ return new TMap.LatLng(p.lat, p.lng); });
-  const requestId = ++routeRequestSeq;
+  clearMapOverlays();
 
   try {
-    if (!multiMarker || !multiPoly) throw new Error('覆盖物未初始化');
-    multiMarker.setStyles(markerStyles(list));
-    multiMarker.setGeometries(geoms);
-    multiPoly.setGeometries(list.length >= 2 ? [{
-      id: 'route_' + d,
-      paths: straightPaths,
-      styleId: 'route'
-    }] : []);
+    list.forEach(function(p) {
+      const svg = ItineraryCore.buildNumberedPinSvg(p.position, CATS[p.cat].color);
+      const icon = new BMap.Icon(
+        'data:image/svg+xml,' + encodeURIComponent(svg),
+        new BMap.Size(36, 42),
+        { anchor: new BMap.Size(18, 41) }
+      );
+      const marker = new BMap.Marker(toBdPoint(p.lat, p.lng), { icon: icon });
+      marker.addEventListener('click', function(){ flyTo(p.day, p.position); });
+      map.addOverlay(marker);
+      mapMarkers.push(marker);
+    });
+    if (list.length >= 2) {
+      const straight = list.map(function(p){ return toBdPoint(p.lat, p.lng); });
+      mapPolyline = new BMap.Polyline(straight, {
+        strokeColor: '#ff5a5f',
+        strokeWeight: 6,
+        strokeOpacity: 0.9
+      });
+      map.addOverlay(mapPolyline);
+    }
   } catch(e){
     document.getElementById('mapTitle').innerHTML +=
       ' · ❌渲染失败: ' + escapeHtml(e && e.message || e);
     return;
   }
 
-  if (infoWin) { infoWin.close(); infoWin = null; }
   scheduleFitMapToPoints(list);
   if (list.length < 2) return;
 
+  const requestId = ++routeRequestSeq;
   setMapRouteTitle(d, list, '路线计算中…');
   buildDrivingRoutePath(list).then(function(path) {
     if (requestId !== routeRequestSeq || curDay !== d || !isMapAvailable()) return;
     if (path && path.length >= 2) {
-      multiPoly.setGeometries([{
-        id: 'route_' + d,
-        paths: path,
-        styleId: 'route'
-      }]);
+      if (mapPolyline) map.removeOverlay(mapPolyline);
+      mapPolyline = new BMap.Polyline(path, {
+        strokeColor: '#ff5a5f',
+        strokeWeight: 6,
+        strokeOpacity: 0.9
+      });
+      map.addOverlay(mapPolyline);
       scheduleFitMapToPoints(list);
     }
     setMapRouteTitle(d, list, '驾车路线');
@@ -1289,8 +1317,8 @@ function flyTo(d, num){
   });
   if (isMobileLayout()) setMobileView('map');
   if (!isMapAvailable()) return;
-  map.setCenter(new TMap.LatLng(p.lat, p.lng));
-  map.setZoom(15);
+  const pt = toBdPoint(p.lat, p.lng);
+  map.centerAndZoom(pt, 15);
   const c = CATS[p.cat];
   let extra = '';
   if (p.cat === 'hotel'){
@@ -1304,22 +1332,19 @@ function flyTo(d, num){
     + '<div class="it">'+escapeHtml(p.title)+'<span class="tag" style="background:'+c.color+'">'+c.label+'</span></div>'
     + '<div class="im">'+DAY_META[d].date+' · '+escapeHtml(p.time)+' · '+escapeHtml(p.city)+'</div>'
     + extra + '</div>';
-  if (infoWin) infoWin.close();
-  infoWin = new TMap.InfoWindow({
-    map: map, position: new TMap.LatLng(p.lat, p.lng),
-    content: html, offset: {x:0, y:-32}
-  });
-  infoWin.open();
+  if (infoWin) map.closeInfoWindow();
+  infoWin = new BMap.InfoWindow(html, { width: 280, offset: new BMap.Size(0, -32) });
+  map.openInfoWindow(infoWin, pt);
 }
 
 async function boot(){
   if (location.protocol === 'file:') {
     showMapUnavailable(
-      '腾讯 JSAPI GL 不支持直接双击打开。请运行本地 HTTP 服务并访问 '
+      '百度地图 JS API 不支持直接双击打开。请运行本地 HTTP 服务并访问 '
       + 'http://localhost:8000/'
     );
-  } else if (typeof TMap === 'undefined') {
-    showMapUnavailable('腾讯地图脚本未加载，请检查网络或 Key 配置');
+  } else if (typeof BMap === 'undefined') {
+    showMapUnavailable('百度地图脚本未加载，请检查网络或 Key 配置');
   } else {
     try {
       initMap();
@@ -1340,7 +1365,7 @@ async function boot(){
   selectDay(DAYS[0]);
 }
 
-if (typeof TMap !== 'undefined') {
+if (typeof BMap !== 'undefined') {
   boot();
 } else {
   window.addEventListener('load', function(){
