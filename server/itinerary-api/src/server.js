@@ -9,6 +9,7 @@ const DOC_PATH = path.join(DATA_DIR, 'itinerary.json');
 const SEED_PATH = path.join(__dirname, 'seed.json');
 
 const ALLOWED_ORIGINS = [
+  'http://124.222.108.66',
   'https://harmony666.github.io',
   'http://localhost:8000',
   'http://127.0.0.1:8000',

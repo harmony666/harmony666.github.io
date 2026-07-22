@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""从 coords.json 导出 Worker 用 seed.json（与 generate_html 的 id/position 规则一致）。"""
+"""从 coords.json 导出 API seed.json（与 generate_html 的 id/position 规则一致）。"""
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -36,7 +36,7 @@ doc = {
     "points": points,
 }
 
-out = ROOT / "workers" / "itinerary-api" / "src" / "seed.json"
+out = ROOT / "server" / "itinerary-api" / "src" / "seed.json"
 out.parent.mkdir(parents=True, exist_ok=True)
 out.write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 print(f"OK wrote {out} points={len(points)}")

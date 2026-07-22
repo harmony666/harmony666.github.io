@@ -378,7 +378,7 @@ const HOTELS = {"威海住宿·山大路": {"addr": "环翠区高技术产业开
 const DAYS = Object.keys(DAY_META).map(Number).sort(function(a,b){return a-b});
 const STORAGE_KEY = 'itinerary-editor-state-v1';
 const PASSWORD_KEY = 'itinerary-edit-password';
-const API_BASE = "http://124.222.108.66:8787";
+const API_BASE = "http://124.222.108.66";
 let remoteVersion = 1;
 let remoteTitle = '武汉 → 山东 9日旅行计划';
 let pollTimer = null;
@@ -1316,7 +1316,7 @@ async function boot(){
   if (location.protocol === 'file:') {
     showMapUnavailable(
       '腾讯 JSAPI GL 不支持直接双击打开。请运行本地 HTTP 服务并访问 '
-      + 'http://localhost:8000/itinerary.html'
+      + 'http://localhost:8000/'
     );
   } else if (typeof TMap === 'undefined') {
     showMapUnavailable('腾讯地图脚本未加载，请检查网络或 Key 配置');

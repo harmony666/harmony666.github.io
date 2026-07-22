@@ -3,5 +3,5 @@
 __pycache__/
 *.pyc
 node_modules/
-workers/**/node_modules/
-.wrangler/
+server/**/node_modules/
+server/itinerary-api/data/*.json

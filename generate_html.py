@@ -6,8 +6,9 @@ from pathlib import Path
 ROOT = Path(__file__).parent
 
 KEY = "B6VBZ-V75KG-HBEQP-IRLIB-ANBLZ-W6BD5"
-# 部署 Cloudflare Worker 后填入根 URL（无尾斜杠）。留空则纯本地 localStorage 模式。
-API_BASE = "http://124.222.108.66:8787"
+# 云端 API 根 URL（无尾斜杠）。留空则纯本地 localStorage 模式。
+# 腾讯云 Nginx 反代 /api 时用站点根，例如 http://124.222.108.66
+API_BASE = "http://124.222.108.66"
 data = json.loads((ROOT / "coords.json").read_text(encoding="utf-8"))
 core_js = (ROOT / "src" / "itinerary-core.js").read_text(encoding="utf-8")
 
@@ -1299,7 +1300,7 @@ async function boot(){
   if (location.protocol === 'file:') {
     showMapUnavailable(
       '腾讯 JSAPI GL 不支持直接双击打开。请运行本地 HTTP 服务并访问 '
-      + 'http://localhost:8000/itinerary.html'
+      + 'http://localhost:8000/'
     );
   } else if (typeof TMap === 'undefined') {
     showMapUnavailable('腾讯地图脚本未加载，请检查网络或 Key 配置');
@@ -1345,7 +1346,6 @@ HTML = (HTML
     .replace("__TOTAL__", str(total))
     .replace("__HOTELS__", hotels_js))
 
-(ROOT / "itinerary.html").write_text(HTML, encoding="utf-8")
 (ROOT / "index.html").write_text(HTML, encoding="utf-8")
-print("OK v3 itinerary.html + index.html  total=¥%s  pois=%d days=%d api=%s" % (
+print("OK v3 index.html  total=¥%s  pois=%d days=%d api=%s" % (
     total, len(data), len(days), API_BASE or "(local-only)"))

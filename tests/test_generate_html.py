@@ -11,7 +11,7 @@ class GeneratedHtmlTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         subprocess.run([PYTHON, "generate_html.py"], cwd=ROOT, check=True)
-        cls.html = (ROOT / "itinerary.html").read_text(encoding="utf-8")
+        cls.html = (ROOT / "index.html").read_text(encoding="utf-8")
 
     def test_inlines_core_and_service_library(self):
         self.assertIn("root.ItineraryCore", self.html)
@@ -71,7 +71,7 @@ class GeneratedHtmlTest(unittest.TestCase):
     def test_generator_works_from_project_parent_directory(self):
         subprocess.run([PYTHON, str(ROOT / "generate_html.py")],
                        cwd=ROOT.parent, check=True)
-        self.assertTrue((ROOT / "itinerary.html").is_file())
+        self.assertTrue((ROOT / "index.html").is_file())
 
     def test_persistence_api_uses_versioned_local_storage(self):
         self.assertIn("const STORAGE_KEY = 'itinerary-editor-state-v1';", self.html)
@@ -210,7 +210,7 @@ class GeneratedHtmlTest(unittest.TestCase):
     def test_file_protocol_shows_explicit_unsupported_map_notice(self):
         self.assertIn("location.protocol === 'file:'", self.html)
         self.assertIn("直接双击", self.html)
-        self.assertIn("http://localhost:8000/itinerary.html", self.html)
+        self.assertIn("http://localhost:8000/", self.html)
 
     def test_timeline_card_click_does_not_require_map(self):
         fly_fn = self.html.split("function flyTo(d, num){", 1)[1].split(

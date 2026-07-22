@@ -1,8 +1,0 @@
-name = "itinerary-api"
-main = "src/index.js"
-compatibility_date = "2026-07-22"
-
-[[kv_namespaces]]
-binding = "ITINERARY_KV"
-id = "73a56f8692ae4d7aae51cd76c9b68e6a"
-preview_id = "a08d90b738c843ecb63e74e9e79c8b39"
