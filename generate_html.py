@@ -38,6 +38,8 @@ hotel_meta = {
     "烟台住宿·青年南路(出发)": {"addr": "青年南路169号", "price": "—", "status": "酒店出发"},
     "烟台住宿·青年南路(回宿)": {"addr": "青年南路169号", "price": "—", "status": "回宿"},
     "烟台住宿·青年南路(退房)": {"addr": "青年南路169号", "price": "—", "status": "退房"},
+    "早起出发赴蓬莱": {"addr": "青年南路169号", "price": "—", "status": "赶船出发"},
+    "返程回烟台": {"addr": "青年南路169号", "price": "—", "status": "回宿"},
     "威海住宿·时代小驿": {
         "addr": "时代小驿民宿(馨海家苑)",
         "price": "¥108",
@@ -56,9 +58,9 @@ day_meta = {
     2: ("8月2日", "威海 · 到站取车登岛入住"),
     3: ("8月3日", "威海 · 东线海角少回头"),
     4: ("8月4日", "威海→烟台 · 跨城入住"),
-    5: ("8月5日", "烟台 · 酒博海滨夜生活"),
-    6: ("8月6日", "烟台 · 养马岛+蓬莱"),
-    7: ("8月7日", "烟台→威海 · 还车夜宿"),
+    5: ("8月5日", "烟台 · 大黑山岛+蓬莱阁"),
+    6: ("8月6日", "烟台 · 养马岛+市区海滨"),
+    7: ("8月7日", "烟台补景点→威海还车"),
     8: ("8月8日", "威海 · 站旁启程"),
     9: ("8月9日", "武汉 · 平安到家"),
 }
@@ -183,10 +185,11 @@ body{
 .inf .it{font-size:15px;font-weight:800;color:var(--ink);display:flex;align-items:center;gap:8px}
 .inf .im{font-size:12px;color:var(--muted);margin-top:6px}
 .inf .id{font-size:12.5px;color:var(--sub);margin-top:7px;line-height:1.55}
-.editor-overlay{position:fixed;inset:0;z-index:1000;background:rgba(10,37,64,.42);display:none;justify-content:flex-end}
+.editor-overlay{position:fixed;inset:0;z-index:1000;background:transparent;display:none;justify-content:flex-start;align-items:stretch;pointer-events:none}
 .editor-overlay.open{display:flex}
-.point-editor{width:min(520px,100%);height:100%;overflow-y:auto;background:#fff;padding:24px;box-shadow:-10px 0 35px rgba(10,37,64,.22)}
-.point-editor h2{margin:0 0 18px}
+.point-editor{pointer-events:auto;width:min(420px,100%);height:100%;overflow-y:auto;background:#fff;padding:24px;box-shadow:10px 0 35px rgba(10,37,64,.22)}
+.point-editor h2{margin:0 0 12px}
+.preview-hint{min-height:18px;font-size:12px;color:var(--sub);margin:0 0 10px;line-height:1.4}
 .editor-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .editor-field{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--sub)}
 .editor-field.wide{grid-column:1/-1}
@@ -201,28 +204,29 @@ body{
 .editor-message{min-height:20px;color:#c33;font-size:12px;margin-top:10px}
 .mobile-bar{display:none}
 .mobile-more{display:none}
+.more-wrap{display:none; position:relative}
 .actions-menu{display:none}
 @media (max-width:900px){
-  .banner{padding:14px 14px 12px}
-  .banner-inner{gap:10px; align-items:flex-start}
+  .banner{padding:14px 14px 12px; overflow:visible; z-index:50}
+  .banner-inner{gap:10px; align-items:flex-start; overflow:visible}
   .banner h1{font-size:18px; letter-spacing:0; text-align:left}
   .banner .sub{text-align:left; letter-spacing:1px; font-size:11px}
   .badges{width:100%; justify-content:space-between}
   .badge{min-width:0; flex:1; padding:8px 6px}
   .badge .v{font-size:16px}
   .badge .l{font-size:10px; letter-spacing:0}
-  .actions{width:100%; justify-content:flex-start; gap:6px}
+  .actions{width:100%; justify-content:flex-start; gap:6px; position:relative; overflow:visible}
   .actions .action-btn.desktop-only{display:none}
+  .more-wrap{display:inline-flex; position:relative; z-index:60}
   .mobile-more{display:inline-flex}
-  .actions-menu{position:absolute; right:14px; top:100%; z-index:30; margin-top:6px;
+  .actions-menu{position:absolute; left:0; right:auto; top:calc(100% + 6px); z-index:70;
     background:#fff; color:var(--ink); border:1px solid var(--line); border-radius:12px;
-    box-shadow:var(--shadow); min-width:160px; padding:6px; display:none}
+    box-shadow:0 10px 28px rgba(10,37,64,.22); min-width:168px; padding:6px; display:none}
   .actions-menu.open{display:grid}
   .actions-menu button{border:0; background:transparent; text-align:left; padding:10px 12px;
     border-radius:8px; font:inherit; font-size:13px; color:var(--ink); cursor:pointer}
   .actions-menu button:hover{background:var(--bg1)}
-  .actions{position:relative}
-  .tabs{padding:8px 12px; gap:6px; -webkit-overflow-scrolling:touch}
+  .tabs{padding:8px 12px; gap:6px; -webkit-overflow-scrolling:touch; position:relative; z-index:1}
   .tab{padding:7px 12px; font-size:13px}
   .mobile-bar{display:flex; gap:8px; padding:8px 12px; flex:0 0 auto;
     background:#fff; border-bottom:1px solid var(--line)}
@@ -252,7 +256,10 @@ body{
   .card .edit-btn,.card .del-btn{padding:8px 14px; font-size:13px; min-height:36px}
   .card .time{flex:0 0 44px; font-size:12px}
   .day-head .d{font-size:18px}
-  .point-editor{width:100%; padding:18px 14px calc(18px + env(safe-area-inset-bottom,0px))}
+  .editor-overlay.open{align-items:flex-end;justify-content:stretch}
+  .point-editor{width:100%; height:min(52vh, 560px); max-height:70vh; border-radius:16px 16px 0 0;
+    padding:14px 14px calc(14px + env(safe-area-inset-bottom,0px));
+    box-shadow:0 -12px 36px rgba(10,37,64,.28)}
 }
 @media (min-width:901px){
   .mobile-bar{display:none !important}
@@ -276,11 +283,13 @@ body{
       <button class="action-btn desktop-only" id="exportBtn" type="button">导出 JSON</button>
       <button class="action-btn desktop-only" id="importBtn" type="button">导入 JSON</button>
       <button class="action-btn desktop-only" id="resetBtn" type="button">恢复初始行程</button>
-      <button class="action-btn mobile-more" id="moreBtn" type="button" aria-expanded="false" aria-controls="actionsMenu">更多</button>
-      <div class="actions-menu" id="actionsMenu" role="menu">
-        <button type="button" id="exportBtnMobile" role="menuitem">导出 JSON</button>
-        <button type="button" id="importBtnMobile" role="menuitem">导入 JSON</button>
-        <button type="button" id="resetBtnMobile" role="menuitem">恢复初始行程</button>
+      <div class="more-wrap">
+        <button class="action-btn mobile-more" id="moreBtn" type="button" aria-expanded="false" aria-controls="actionsMenu">更多</button>
+        <div class="actions-menu" id="actionsMenu" role="menu">
+          <button type="button" id="exportBtnMobile" role="menuitem">导出 JSON</button>
+          <button type="button" id="importBtnMobile" role="menuitem">导入 JSON</button>
+          <button type="button" id="resetBtnMobile" role="menuitem">恢复初始行程</button>
+        </div>
       </div>
       <input id="importInput" type="file" accept=".json,application/json" hidden>
       <div id="saveStatus" class="save-status" role="status" aria-live="polite"></div>
@@ -349,6 +358,7 @@ body{
         </label>
       </div>
       <div class="place-results" id="placeResults"></div>
+      <div class="preview-hint" id="previewHint" role="status"></div>
       <div class="editor-message" id="pointEditorMessage" role="status"></div>
       <div class="editor-actions">
         <button id="mapPickBtn" type="button">地图选点</button>
@@ -696,6 +706,9 @@ document.getElementById('moreBtn').addEventListener('click', function(e){
   menu.classList.toggle('open', open);
   document.getElementById('moreBtn').setAttribute('aria-expanded', open ? 'true' : 'false');
 });
+document.getElementById('actionsMenu').addEventListener('click', function(e){
+  e.stopPropagation();
+});
 document.getElementById('exportBtnMobile').addEventListener('click', function(){
   closeActionsMenu();
   exportJson();
@@ -760,6 +773,8 @@ DAYS.forEach(function(d){
 
 let map, infoWin;
 let mapMarkers = [];
+let previewMarker = null;
+let previewPolyline = null;
 let mapPolyline = null;
 let mapReady = false;
 let curDay = null;
@@ -827,8 +842,11 @@ function openPointEditor() {
   document.getElementById('pointCity').value = first ? first.city : '';
   document.getElementById('placeResults').replaceChildren();
   setEditorMessage('');
+  setPreviewHint('');
   pointSource = 'map_click';
   document.getElementById('pointEditor').classList.add('open');
+  if (isMobileLayout()) setMobileView('map');
+  refreshEditorPreview();
   document.getElementById('pointTime').focus();
 }
 
@@ -851,12 +869,16 @@ function openPointEditorForEdit(pointId) {
   pointSource = p.source || 'map_click';
   setEditorMessage('');
   document.getElementById('pointEditor').classList.add('open');
+  if (isMobileLayout()) setMobileView('map');
+  refreshEditorPreview();
   document.getElementById('pointTime').focus();
 }
 
 function closePointEditor() {
   editingPointId = null;
   removeMapPickHandler();
+  clearPreviewOverlays();
+  setPreviewHint('');
   document.getElementById('pointEditor').classList.remove('open');
   document.getElementById('pointId').value = '';
   setEditorMessage('');
@@ -908,6 +930,7 @@ function beginMapPick() {
     map.removeEventListener('click', mapPickHandler);
     mapPickHandler = null;
     setEditorMessage('已选择地图坐标');
+    refreshEditorPreview();
   };
   map.addEventListener('click', mapPickHandler);
   setEditorMessage('请在地图上点击位置');
@@ -960,6 +983,7 @@ function searchPlaces(keyword, city) {
             map.centerAndZoom(item.point, 15);
           }
           setEditorMessage('已选择搜索结果');
+          refreshEditorPreview();
         });
         results.appendChild(button);
       }
@@ -1039,6 +1063,37 @@ document.getElementById('pointForm').addEventListener('submit', function(e) {
   e.preventDefault();
   submitPoint(new FormData(e.currentTarget));
 });
+['pointDay', 'pointTime', 'pointLat', 'pointLng', 'pointCategory', 'pointTitle'].forEach(function(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('input', refreshEditorPreview);
+  el.addEventListener('change', refreshEditorPreview);
+});
+
+function polylineWithArrows(path, options) {
+  options = options || {};
+  const opts = {
+    strokeColor: options.strokeColor || '#ff5a5f',
+    strokeWeight: options.strokeWeight || 6,
+    strokeOpacity: options.strokeOpacity != null ? options.strokeOpacity : 0.9,
+    strokeStyle: options.strokeStyle || 'solid'
+  };
+  if (typeof BMap !== 'undefined'
+      && typeof BMap.Symbol === 'function'
+      && typeof BMap.IconSequence === 'function'
+      && typeof BMap_Symbol_SHAPE_FORWARD_OPEN_ARROW !== 'undefined') {
+    try {
+      const symbol = new BMap.Symbol(BMap_Symbol_SHAPE_FORWARD_OPEN_ARROW, {
+        scale: 0.55,
+        strokeColor: '#ffffff',
+        strokeWeight: 2,
+        strokeOpacity: 0.95
+      });
+      opts.icons = [new BMap.IconSequence(symbol, '8', '42')];
+    } catch (_) {}
+  }
+  return new BMap.Polyline(path, opts);
+}
 
 function straightSegment(from, to) {
   return [toBdPoint(from.lat, from.lng), toBdPoint(to.lat, to.lng)];
@@ -1140,6 +1195,116 @@ function clearMapOverlays() {
   mapMarkers = [];
   mapPolyline = null;
   infoWin = null;
+  previewMarker = null;
+  previewPolyline = null;
+}
+
+function clearPreviewOverlays() {
+  if (!map) {
+    previewMarker = null;
+    previewPolyline = null;
+    return;
+  }
+  if (previewMarker) {
+    try { map.removeOverlay(previewMarker); } catch (_) {}
+    previewMarker = null;
+  }
+  if (previewPolyline) {
+    try { map.removeOverlay(previewPolyline); } catch (_) {}
+    previewPolyline = null;
+  }
+}
+
+function setPreviewHint(text) {
+  const el = document.getElementById('previewHint');
+  if (el) el.textContent = text || '';
+}
+
+function readDraftFromForm() {
+  const day = Number(document.getElementById('pointDay').value);
+  let time = String(document.getElementById('pointTime').value || '');
+  if (time.length > 5) time = time.slice(0, 5);
+  const lat = Number(document.getElementById('pointLat').value);
+  const lng = Number(document.getElementById('pointLng').value);
+  const cat = String(document.getElementById('pointCategory').value || 'scenic');
+  const title = String(document.getElementById('pointTitle').value || '').trim();
+  return {
+    id: editingPointId || '',
+    day: day,
+    time: time,
+    lat: lat,
+    lng: lng,
+    cat: cat,
+    title: title
+  };
+}
+
+function refreshEditorPreview() {
+  if (!document.getElementById('pointEditor').classList.contains('open')) {
+    clearPreviewOverlays();
+    setPreviewHint('');
+    return;
+  }
+  if (!isMapAvailable()) return;
+  const draft = readDraftFromForm();
+  const hasCoord = Number.isFinite(draft.lat) && Number.isFinite(draft.lng)
+    && draft.lat >= -90 && draft.lat <= 90 && draft.lng >= -180 && draft.lng <= 180;
+  const hasTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(draft.time);
+  const dayOk = DAYS.includes(draft.day);
+
+  clearPreviewOverlays();
+
+  if (dayOk && draft.day !== curDay) {
+    selectDay(draft.day);
+    return;
+  }
+
+  let hint = '';
+  if (dayOk && hasTime) {
+    const dayPoints = POIS.filter(function(p){ return p.day === draft.day; });
+    const neighbors = ItineraryCore.findTimeNeighbors(dayPoints, draft, editingPointId || undefined);
+    if (neighbors.prev && neighbors.next) {
+      hint = '按时间将插在「' + neighbors.prev.title + '」与「' + neighbors.next.title + '」之间';
+    } else if (!neighbors.prev && neighbors.next) {
+      hint = '按时间将作为当天第一个点（在「' + neighbors.next.title + '」之前）';
+    } else if (neighbors.prev && !neighbors.next) {
+      hint = '按时间将作为当天最后一个点（在「' + neighbors.prev.title + '」之后）';
+    } else {
+      hint = '当天尚无其他行程点';
+    }
+    if (hasCoord) {
+      const path = [];
+      if (neighbors.prev) path.push(toBdPoint(neighbors.prev.lat, neighbors.prev.lng));
+      path.push(toBdPoint(draft.lat, draft.lng));
+      if (neighbors.next) path.push(toBdPoint(neighbors.next.lat, neighbors.next.lng));
+      if (path.length >= 2) {
+        previewPolyline = polylineWithArrows(path, {
+          strokeColor: '#635bff',
+          strokeWeight: 5,
+          strokeOpacity: 0.85,
+          strokeStyle: 'dashed'
+        });
+        map.addOverlay(previewPolyline);
+      }
+    }
+  } else if (hasCoord) {
+    hint = '已定位；填写时间后可预览插入顺序';
+  } else {
+    hint = '选择坐标后显示预览钉；填写时间后显示虚线插入位置';
+  }
+  setPreviewHint(hint);
+
+  if (hasCoord) {
+    const color = (CATS[draft.cat] && CATS[draft.cat].color) || '#635bff';
+    const svg = ItineraryCore.buildNumberedPinSvg('+', color);
+    const icon = new BMap.Icon(
+      'data:image/svg+xml,' + encodeURIComponent(svg),
+      new BMap.Size(36, 42),
+      { anchor: new BMap.Size(18, 41) }
+    );
+    previewMarker = new BMap.Marker(toBdPoint(draft.lat, draft.lng), { icon: icon });
+    map.addOverlay(previewMarker);
+  }
 }
 
 function initMap(){
@@ -1221,6 +1386,9 @@ function renderMap(d, list){
   clearMapOverlays();
 
   try {
+    const offsetList = ItineraryCore.computeMarkerPixelOffsets(list);
+    const offsetById = {};
+    offsetList.forEach(function(o){ offsetById[o.id] = o; });
     list.forEach(function(p) {
       const svg = ItineraryCore.buildNumberedPinSvg(p.position, CATS[p.cat].color);
       const icon = new BMap.Icon(
@@ -1228,14 +1396,18 @@ function renderMap(d, list){
         new BMap.Size(36, 42),
         { anchor: new BMap.Size(18, 41) }
       );
-      const marker = new BMap.Marker(toBdPoint(p.lat, p.lng), { icon: icon });
+      const off = offsetById[p.id] || { offsetX: 0, offsetY: 0 };
+      const marker = new BMap.Marker(toBdPoint(p.lat, p.lng), {
+        icon: icon,
+        offset: new BMap.Size(off.offsetX, off.offsetY)
+      });
       marker.addEventListener('click', function(){ flyTo(p.day, p.position); });
       map.addOverlay(marker);
       mapMarkers.push(marker);
     });
     if (list.length >= 2) {
       const straight = list.map(function(p){ return toBdPoint(p.lat, p.lng); });
-      mapPolyline = new BMap.Polyline(straight, {
+      mapPolyline = polylineWithArrows(straight, {
         strokeColor: '#ff5a5f',
         strokeWeight: 6,
         strokeOpacity: 0.9
@@ -1249,6 +1421,9 @@ function renderMap(d, list){
   }
 
   scheduleFitMapToPoints(list);
+  if (document.getElementById('pointEditor').classList.contains('open')) {
+    refreshEditorPreview();
+  }
   if (list.length < 2) return;
 
   const requestId = ++routeRequestSeq;
@@ -1257,7 +1432,7 @@ function renderMap(d, list){
     if (requestId !== routeRequestSeq || curDay !== d || !isMapAvailable()) return;
     if (path && path.length >= 2) {
       if (mapPolyline) map.removeOverlay(mapPolyline);
-      mapPolyline = new BMap.Polyline(path, {
+      mapPolyline = polylineWithArrows(path, {
         strokeColor: '#ff5a5f',
         strokeWeight: 6,
         strokeOpacity: 0.9

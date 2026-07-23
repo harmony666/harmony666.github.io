@@ -35,8 +35,18 @@ class GeneratedHtmlTest(unittest.TestCase):
         self.assertIn("function fetchDrivingSegment(from, to)", self.html)
         self.assertIn("buildDrivingRoutePath(list)", self.html)
         self.assertIn("straightSegment", self.html)
+        self.assertIn("polylineWithArrows", self.html)
+        self.assertIn("BMap.IconSequence", self.html)
         self.assertIn("路线计算中", self.html)
         self.assertIn("驾车路线", self.html)
+
+    def test_day67_includes_heishan_and_yantai_fillers(self):
+        self.assertIn("大黑山岛", self.html)
+        self.assertIn("南山公园", self.html)
+        self.assertIn("西炮台", self.html)
+        self.assertIn("门票：免费", self.html)
+        self.assertIn("门票约¥", self.html)
+        self.assertIn("养马岛+蓬莱+大黑山", self.html)
 
     def test_day_switch_fits_map_to_current_points(self):
         self.assertIn("function fitMapToPoints(list)", self.html)
@@ -183,6 +193,20 @@ class GeneratedHtmlTest(unittest.TestCase):
         self.assertIn("local.setPageCapacity(8)", self.html)
         self.assertIn("map.addEventListener('click', mapPickHandler)", self.html)
         self.assertIn("map.removeEventListener('click', mapPickHandler)", self.html)
+
+    def test_editor_layout_keeps_map_visible_with_preview(self):
+        self.assertIn("justify-content:flex-start", self.html)
+        self.assertIn("pointer-events:none", self.html)
+        self.assertIn("function refreshEditorPreview()", self.html)
+        self.assertIn("computeMarkerPixelOffsets", self.html)
+        self.assertIn("findTimeNeighbors", self.html)
+        self.assertIn('id="previewHint"', self.html)
+        self.assertIn("strokeStyle: 'dashed'", self.html)
+        open_add = self.html.split("function openPointEditor()", 1)[1].split(
+            "function openPointEditorForEdit", 1
+        )[0]
+        self.assertIn("setMobileView('map')", open_add)
+        self.assertIn("refreshEditorPreview()", open_add)
 
     def test_timeline_and_tabs_survive_map_script_or_initialization_failure(self):
         select_day = self.html.split("function selectDay(d){", 1)[1].split(

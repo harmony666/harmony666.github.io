@@ -106,6 +106,65 @@
     return `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="42"><path fill="${color}" stroke="#fff" stroke-width="2" d="M18 1C8.6 1 2 8 2 17c0 12 16 24 16 24s16-12 16-24C34 8 27.4 1 18 1z"/><text x="18" y="22" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">${number}</text></svg>`;
   }
 
+  const DEFAULT_COINCIDE_THRESHOLD = 0.00015;
+
+  function coordKey(lat, lng, threshold) {
+    const t = threshold > 0 ? threshold : DEFAULT_COINCIDE_THRESHOLD;
+    return Math.round(Number(lat) / t) + ':' + Math.round(Number(lng) / t);
+  }
+
+  function computeMarkerPixelOffsets(points, threshold) {
+    const list = Array.isArray(points) ? points : [];
+    const t = threshold == null ? DEFAULT_COINCIDE_THRESHOLD : Number(threshold);
+    const groups = new Map();
+    list.forEach((p) => {
+      const key = coordKey(p.lat, p.lng, t);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(p);
+    });
+    const radius = 12;
+    const result = [];
+    groups.forEach((cluster) => {
+      const n = cluster.length;
+      cluster.forEach((p, i) => {
+        if (n === 1) {
+          result.push({ id: p.id, offsetX: 0, offsetY: 0 });
+          return;
+        }
+        // 两点优先左右错开；三点及以上从正上方起扇形展开
+        const angle = (Math.PI * 2 * i) / n - (n === 2 ? 0 : Math.PI / 2);
+        result.push({
+          id: p.id,
+          offsetX: Math.round(Math.cos(angle) * radius),
+          offsetY: Math.round(Math.sin(angle) * radius),
+        });
+      });
+    });
+    return result;
+  }
+
+  function findTimeNeighbors(dayPoints, draft, excludeId) {
+    const time = draft && draft.time;
+    if (!TIME_RE.test(String(time || ''))) {
+      return { prev: null, next: null };
+    }
+    const exclude = excludeId != null ? String(excludeId) : (draft && draft.id ? String(draft.id) : '');
+    const sorted = (Array.isArray(dayPoints) ? dayPoints : [])
+      .filter((p) => !exclude || p.id !== exclude)
+      .slice()
+      .sort((a, b) => a.time.localeCompare(b.time) || String(a.id).localeCompare(String(b.id)));
+    let prev = null;
+    let next = null;
+    for (let i = 0; i < sorted.length; i++) {
+      if (sorted[i].time <= time) prev = sorted[i];
+      else {
+        next = sorted[i];
+        break;
+      }
+    }
+    return { prev, next };
+  }
+
   return {
     normalizePoints,
     insertPointByTime,
@@ -115,5 +174,7 @@
     createExport,
     parseImport,
     buildNumberedPinSvg,
+    computeMarkerPixelOffsets,
+    findTimeNeighbors,
   };
 });

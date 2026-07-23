@@ -1,5 +1,7 @@
 # 删除点 + 百度地图 Implementation Plan
 
+> **状态：已完成（历史计划，可删）** — 实现已进主代码与 `2026-07-22-baidu-map-and-delete-point-design.md`。
+
 > **For agentic workers:** 按任务顺序 TDD；每任务可独立验证。
 
 **Goal:** 行程卡片可确认删除；地图从腾讯换成百度 JS API（AK 已提供）。

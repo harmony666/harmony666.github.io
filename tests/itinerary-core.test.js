@@ -105,6 +105,68 @@ test('buildNumberedPinSvg contains visible sequence number', () => {
   assert.match(Core.buildNumberedPinSvg(12, '#0aa3ff'), />12</);
 });
 
+test('computeMarkerPixelOffsets is zero for distinct coords', () => {
+  const points = [
+    point('a', 1, '09:00', 1, { lat: 37.5, lng: 122.1 }),
+    point('b', 1, '10:00', 2, { lat: 37.6, lng: 122.2 }),
+  ];
+  const offsets = Core.computeMarkerPixelOffsets(points);
+  assert.deepEqual(
+    offsets.map((o) => [o.id, o.offsetX, o.offsetY]),
+    [
+      ['a', 0, 0],
+      ['b', 0, 0],
+    ],
+  );
+});
+
+test('computeMarkerPixelOffsets fans coincident points', () => {
+  const points = [
+    point('a', 1, '09:00', 1, { lat: 37.5, lng: 122.1 }),
+    point('b', 1, '18:00', 2, { lat: 37.5, lng: 122.1 }),
+    point('c', 1, '12:00', 3, { lat: 37.51, lng: 122.11 }),
+  ];
+  const byId = Object.fromEntries(
+    Core.computeMarkerPixelOffsets(points).map((o) => [o.id, o]),
+  );
+  assert.equal(byId.c.offsetX, 0);
+  assert.equal(byId.c.offsetY, 0);
+  assert.notEqual(byId.a.offsetX, byId.b.offsetX);
+  assert.ok(Math.abs(byId.a.offsetX) > 0 || Math.abs(byId.a.offsetY) > 0);
+  assert.ok(Math.abs(byId.b.offsetX) > 0 || Math.abs(byId.b.offsetY) > 0);
+});
+
+test('findTimeNeighbors returns prev/next by time', () => {
+  const dayPoints = [
+    point('a', 1, '09:00', 1),
+    point('b', 1, '12:00', 2),
+    point('c', 1, '18:00', 3),
+  ];
+  assert.deepEqual(
+    Core.findTimeNeighbors(dayPoints, { time: '10:00' }).prev.id,
+    'a',
+  );
+  assert.deepEqual(
+    Core.findTimeNeighbors(dayPoints, { time: '10:00' }).next.id,
+    'b',
+  );
+  assert.equal(Core.findTimeNeighbors(dayPoints, { time: '08:00' }).prev, null);
+  assert.equal(Core.findTimeNeighbors(dayPoints, { time: '08:00' }).next.id, 'a');
+  assert.equal(Core.findTimeNeighbors(dayPoints, { time: '20:00' }).prev.id, 'c');
+  assert.equal(Core.findTimeNeighbors(dayPoints, { time: '20:00' }).next, null);
+});
+
+test('findTimeNeighbors excludes self when editing', () => {
+  const dayPoints = [
+    point('a', 1, '09:00', 1),
+    point('b', 1, '12:00', 2),
+    point('c', 1, '18:00', 3),
+  ];
+  const n = Core.findTimeNeighbors(dayPoints, { time: '12:00', id: 'b' }, 'b');
+  assert.equal(n.prev.id, 'a');
+  assert.equal(n.next.id, 'c');
+});
+
 test('parseImport rejects duplicate ids, invalid day, time, cat, and lng', () => {
   const base = Core.createExport([point('a', 1, '09:00', 1)], '旅行', new Date(0));
 

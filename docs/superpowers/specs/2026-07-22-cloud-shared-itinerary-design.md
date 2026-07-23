@@ -74,12 +74,13 @@ Node (systemd: itinerary-api)
 2. `python generate_html.py`（`API_BASE=http://124.222.108.66`）
 3. `$env:ITINERARY_SSH_PASSWORD=...` → `python scripts/deploy_vps.py`
 4. 腾讯云轻量防火墙放行 **TCP 80**
-5. 腾讯地图 Key 白名单含 `124.222.108.66`
+5. 百度地图 AK Referer 白名单含 `124.222.108.66`、`localhost:8000`
+6. deploy **不会**覆盖已有 `data/itinerary.json`；seed 变更后需「恢复初始」或 `POST /api/itinerary/reset`
 
 口令与 SSH 密码不要写入仓库。
 
 ## 7. 废弃说明
 
-- 已删除：`workers/itinerary-api/`（Cloudflare Workers + KV + wrangler）
+- 已废弃：Cloudflare Workers + KV + wrangler（勿再引入 `workers/`）
 - 不再以 GitHub Pages 为线上入口（仓库可保留源码）
 - 控制台若仍有旧 Worker `itinerary-api`，可手动停用/删除（不影响现役站点）
